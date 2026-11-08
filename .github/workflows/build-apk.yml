@@ -5,6 +5,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,3 +29,14 @@ jobs:
           name: Textura-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      # Publishes the APK at a fixed link:
+      # https://github.com/Bigoke/Textura/releases/latest/download/app-debug.apk
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-build
+          name: Textura latest build
+          body: Debug APK built from the latest commit on main.
+          files: app/build/outputs/apk/debug/app-debug.apk
+          make_latest: true
