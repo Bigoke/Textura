@@ -1,0 +1,6 @@
+-keepattributes Signature, *Annotation*
+-keep class com.textura.app.model.** { *; }
+-keep class com.textura.app.data.HistoryItem { *; }
+-keep class com.textura.app.data.Settings { *; }
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
