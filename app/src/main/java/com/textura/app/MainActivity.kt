@@ -31,6 +31,7 @@ import androidx.navigation.compose.rememberNavController
 import com.textura.app.ui.AppViewModel
 import com.textura.app.ui.BrowserScreen
 import com.textura.app.ui.EditorScreen
+import com.textura.app.ui.HandwritingScreen
 import com.textura.app.ui.HomeScreen
 import com.textura.app.ui.LibraryScreen
 import com.textura.app.ui.SettingsScreen
@@ -143,7 +144,10 @@ private fun AppNav(vm: AppViewModel) {
                 )
             }
             composable("editor") {
-                EditorScreen(vm, onDone = { nav.popBackStack() })
+                EditorScreen(vm, onDone = { nav.popBackStack() }, onHandwriting = { nav.navigate("handwriting") { launchSingleTop = true } })
+            }
+            composable("handwriting") {
+                HandwritingScreen(vm, onDone = { nav.popBackStack() })
             }
         }
     }

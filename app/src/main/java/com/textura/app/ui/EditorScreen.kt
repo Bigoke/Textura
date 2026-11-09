@@ -63,7 +63,7 @@ private val TabTitles = listOf("Text", "Font", "Background", "Depth", "Layout", 
 private const val STICKER_TAB = 7
 
 @Composable
-fun EditorScreen(vm: AppViewModel, onDone: () -> Unit) {
+fun EditorScreen(vm: AppViewModel, onDone: () -> Unit, onHandwriting: () -> Unit = {}) {
     val look = vm.editing
     if (look == null) {
         LaunchedEffect(Unit) { onDone() }
@@ -242,7 +242,7 @@ fun EditorScreen(vm: AppViewModel, onDone: () -> Unit) {
                 ) {
                     when (tab) {
                         0 -> TextTab(vm, look)
-                        1 -> FontTab(vm, look)
+                        1 -> FontTab(vm, look, onHandwriting)
                         2 -> BackgroundTab(vm, look)
                         3 -> DepthTab(vm, look)
                         4 -> LayoutTab(vm, look)

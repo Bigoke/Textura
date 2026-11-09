@@ -29,6 +29,7 @@ import com.textura.app.model.Look
 import com.textura.app.render.Renderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import java.util.UUID
 import kotlin.math.max
@@ -383,6 +384,38 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.saveUserFonts(list)
         Fonts.user = list.map { AppFont(it.id, it.label, FontGroup.Mine, it.path) }
         fontsVersion++
+        return true
+    }
+
+    suspend fun exportVideo(look: Look, longEdge: Int, signature: Watermark?, onProgress: (Int, Int) -> Unit): Boolean {
+        val ctx = getApplication<Application>()
+        val t = text
+        val sh = shape
+        return withContext(Dispatchers.Default) {
+            runCatching {
+                com.textura.app.data.VideoExporter.export(ctx, look, t, sh, longEdge, signature, onProgress, { !isActive })
+            }.getOrDefault(false)
+        }
+    }
+
+    fun loadHand() = store.loadHand()
+
+    /** Builds the handwriting font from drawn strokes and selects it. */
+    fun buildHandwriting(glyphs: Map<String, List<List<List<Float>>>>, thickness: Float): Boolean {
+        val strokes = glyphs.entries.filter { it.key.length == 1 }.associate { e ->
+            e.key[0] to e.value.map { st -> st.filter { it.size >= 2 }.map { it[0] to it[1] } }
+        }
+        if (strokes.isEmpty()) return false
+        store.saveHand(com.textura.app.data.HandData(thickness, glyphs))
+        val bytes = runCatching { com.textura.app.render.FontBuilder.build("My handwriting", strokes, thickness) }.getOrNull() ?: return false
+        val id = "user_myhand"
+        Fonts.forget(id)
+        val f = store.saveGeneratedFont(id, "My handwriting", bytes) ?: return false
+        val list = store.loadUserFonts().filter { it.id != id } + f
+        store.saveUserFonts(list)
+        Fonts.user = list.map { AppFont(it.id, it.label, FontGroup.Mine, it.path) }
+        fontsVersion++
+        edit { it.copy(fontId = id, handwritten = true, imperfection = maxOf(it.imperfection, 0.4f)) }
         return true
     }
 

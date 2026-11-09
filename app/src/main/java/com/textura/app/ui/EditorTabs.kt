@@ -188,7 +188,7 @@ fun TextTab(vm: AppViewModel, look: Look) {
 // FONT
 // ------------------------------------------------------------------------------------------------
 @Composable
-fun FontTab(vm: AppViewModel, look: Look) {
+fun FontTab(vm: AppViewModel, look: Look, onHandwriting: () -> Unit = {}) {
     var group by remember { mutableStateOf<FontGroup?>(null) }
     @Suppress("UNUSED_VARIABLE") val fontsVersion = vm.fontsVersion
     val groups = FontGroup.entries.filter { g -> Fonts.all.any { it.group == g } }
@@ -218,6 +218,7 @@ fun FontTab(vm: AppViewModel, look: Look) {
             OutlinedButton(onClick = { vm.deleteFont(look.fontId); vm.edit { it.copy(fontId = "montserrat") } }) { Text("Delete this font") }
         }
     }
+    OutlinedButton(onClick = onHandwriting) { Text("Make a font from my handwriting") }
     Spacer(Modifier.height(8.dp))
     LabeledSlider("Letter spacing", look.letterSpacing, -0.05f..0.3f, { v -> vm.edit { it.copy(letterSpacing = v) } })
     SwitchRow("Handwritten movement", look.handwritten) { on -> vm.edit { it.copy(handwritten = on) } }

@@ -118,7 +118,7 @@ fun SettingsScreen(vm: AppViewModel) {
 
         SectionTitle("About")
         Text(
-            "Textura 1.1\nEverything is created on your device. Fonts are bundled open-source families (SIL Open Font License / Apache 2.0) from Google Fonts, so the app works fully offline.",
+            "Textura 1.2\nEverything is created on your device. Fonts are bundled open-source families (SIL Open Font License / Apache 2.0) from Google Fonts, so the app works fully offline.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth(),

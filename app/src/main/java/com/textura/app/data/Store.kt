@@ -42,6 +42,7 @@ data class HistoryItem(
     val look: Look = Look(),
 )
 
+data class HandData(val thickness: Float = 0.05f, val glyphs: Map<String, List<List<List<Float>>>> = emptyMap())
 data class UserFont(val id: String = "", val label: String = "", val path: String = "")
 
 data class Backup(
@@ -81,6 +82,20 @@ class Store(context: Context) {
         read("userfonts", object : TypeToken<List<UserFont>>() {}, emptyList<UserFont>()).filter { File(it.path).exists() }
 
     fun saveUserFonts(f: List<UserFont>) = write("userfonts", f)
+
+    fun loadHand(): HandData = read("handwriting", object : TypeToken<HandData>() {}, HandData())
+    fun saveHand(h: HandData) = write("handwriting", h)
+
+    /** Writes generated font bytes to app storage and returns the font entry. */
+    fun saveGeneratedFont(id: String, label: String, bytes: ByteArray): UserFont? = runCatching {
+        val dir = File(app.filesDir, "userfonts").apply { mkdirs() }
+        val file = File(dir, "$id.ttf")
+        file.writeBytes(bytes)
+        val tf = android.graphics.Typeface.createFromFile(file)
+        val ok = android.graphics.Paint().apply { typeface = tf }.hasGlyph("A") || android.graphics.Paint().apply { typeface = tf }.hasGlyph("a")
+        if (!ok) { file.delete(); return null }
+        UserFont(id, label, file.absolutePath)
+    }.getOrNull()
 
     fun backupJson(custom: List<Look>, favorites: Set<String>, settings: Settings, text: String): String =
         gson.toJson(Backup(1, custom, favorites.toList(), settings, text))
