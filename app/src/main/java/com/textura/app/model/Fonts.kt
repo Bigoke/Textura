@@ -2,8 +2,11 @@ package com.textura.app.model
 
 import android.content.Context
 import android.graphics.Typeface
+import androidx.compose.ui.text.font.FontFamily
+import java.io.File
 
 enum class FontGroup(val label: String) {
+    Mine("My fonts"),
     Handwritten("Handwritten"),
     Script("Script"),
     Typed("Typed"),
@@ -12,12 +15,13 @@ enum class FontGroup(val label: String) {
     Display("Display"),
 }
 
-data class AppFont(val id: String, val label: String, val group: FontGroup) {
+/** [filePath] is set for fonts the user imported or created; bundled fonts load from assets. */
+data class AppFont(val id: String, val label: String, val group: FontGroup, val filePath: String? = null) {
     val assetPath: String get() = "fonts/$id.ttf"
 }
 
 object Fonts {
-    val all: List<AppFont> = listOf(
+    val builtIn: List<AppFont> = listOf(
         // handwriting
         AppFont("caveat", "Caveat", FontGroup.Handwritten),
         AppFont("shadows_into_light", "Shadows Into Light", FontGroup.Handwritten),
@@ -66,16 +70,34 @@ object Fonts {
         AppFont("monoton", "Monoton", FontGroup.Display),
     )
 
-    fun byId(id: String): AppFont = all.firstOrNull { it.id == id } ?: all.first { it.id == "montserrat" }
+    /** Fonts the user imported or generated. Set by the view model at start-up and after changes. */
+    @Volatile
+    var user: List<AppFont> = emptyList()
+
+    val all: List<AppFont> get() = user + builtIn
+
+    fun byId(id: String): AppFont =
+        user.firstOrNull { it.id == id } ?: builtIn.firstOrNull { it.id == id } ?: builtIn.first { it.id == "montserrat" }
 
     private val cache = HashMap<String, Typeface>()
 
     @Synchronized
     fun typeface(context: Context, id: String): Typeface {
         val font = byId(id)
-        return cache.getOrPut(font.id) {
-            runCatching { Typeface.createFromAsset(context.applicationContext.assets, font.assetPath) }
-                .getOrDefault(Typeface.DEFAULT)
+        return cache.getOrPut(font.id + "|" + (font.filePath ?: "")) {
+            runCatching {
+                val path = font.filePath
+                if (path != null) Typeface.createFromFile(File(path))
+                else Typeface.createFromAsset(context.applicationContext.assets, font.assetPath)
+            }.getOrDefault(Typeface.DEFAULT)
         }
     }
+
+    @Synchronized
+    fun forget(id: String) {
+        cache.keys.removeAll { it.startsWith("$id|") }
+    }
+
+    fun composeFamily(context: Context, font: AppFont): FontFamily =
+        FontFamily(typeface(context, font.id))
 }

@@ -254,6 +254,8 @@ object PaperPainter {
                 vignette(canvas, sheet, c(0x7A6A48), 0.5f)
             }
 
+            PaperType.Glass -> {}
+
             PaperType.Kraft -> {
                 fill(canvas, sheet, look.paperColor, corner)
                 val rnd = Random(seed)
@@ -277,7 +279,21 @@ object PaperPainter {
     fun sheetPath(look: Look, sheet: RectF, corner: Float): Path {
         val path = Path()
         val floating = look.paperInset > 0f || look.tilt != 0f
-        if (look.paper == PaperType.Receipt && floating) {
+        if (look.torn) {
+            val rnd = Random(333)
+            val amp = sheet.width() * 0.012f
+            fun jag(): Float = (rnd.nextFloat() - 0.5f) * 2f * amp
+            path.moveTo(sheet.left + jag(), sheet.top + jag())
+            var x = sheet.left
+            while (x < sheet.right) { x += 6f + rnd.nextFloat() * 12f; path.lineTo(min(x, sheet.right) + jag() * 0.3f, sheet.top + jag()) }
+            var y = sheet.top
+            while (y < sheet.bottom) { y += 6f + rnd.nextFloat() * 12f; path.lineTo(sheet.right + jag(), min(y, sheet.bottom)) }
+            x = sheet.right
+            while (x > sheet.left) { x -= 6f + rnd.nextFloat() * 12f; path.lineTo(max(x, sheet.left), sheet.bottom + jag()) }
+            y = sheet.bottom
+            while (y > sheet.top) { y -= 6f + rnd.nextFloat() * 12f; path.lineTo(sheet.left + jag(), max(y, sheet.top)) }
+            path.close()
+        } else if (look.paper == PaperType.Receipt && floating) {
             val tooth = 9f
             path.moveTo(sheet.left, sheet.top + tooth)
             var x = sheet.left
@@ -298,6 +314,76 @@ object PaperPainter {
             path.addRoundRect(sheet, corner, corner, Path.Direction.CW)
         }
         return path
+    }
+
+    /** Wear and damage drawn over the sheet: stains, folds, burn marks, ink blots. */
+    fun drawEffects(canvas: Canvas, look: Look, sheet: RectF, scale: Float) {
+        if (!(look.stains || look.folds || look.burnt || look.blots)) return
+        val w = sheet.width()
+        val h = sheet.height()
+        val corner = if (look.paperInset > 0f || look.tilt != 0f) 6f else 0f
+        val k = look.wear.coerceIn(0f, 1.5f)
+        canvas.save()
+        canvas.clipPath(sheetPath(look, sheet, corner))
+
+        if (look.stains) {
+            val rnd = Random(91)
+            repeat(2) {
+                val cx = sheet.left + w * (0.22f + 0.56f * rnd.nextFloat())
+                val cy = sheet.top + h * (0.22f + 0.56f * rnd.nextFloat())
+                val rad = w * (0.07f + 0.05f * rnd.nextFloat())
+                val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    strokeWidth = rad * 0.13f
+                    color = ca((105 * k).toInt().coerceIn(0, 255), 0x5A3410)
+                    maskFilter = BlurMaskFilter(rad * 0.05f, BlurMaskFilter.Blur.NORMAL)
+                }
+                canvas.drawCircle(cx, cy, rad, ring)
+                val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ca((30 * k).toInt().coerceIn(0, 255), 0x7A4A1C) }
+                canvas.drawCircle(cx, cy, rad * 0.97f, fill)
+                val drop = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ca((90 * k).toInt().coerceIn(0, 255), 0x5A3410) }
+                repeat(7) {
+                    val a = rnd.nextFloat() * 6.2832f
+                    val d = rad * (1.05f + rnd.nextFloat() * 0.5f)
+                    canvas.drawCircle(cx + kotlin.math.cos(a) * d, cy + kotlin.math.sin(a) * d, 1.5f + rnd.nextFloat() * 4f, drop)
+                }
+            }
+        }
+
+        if (look.folds) {
+            crease(canvas, sheet.left + w / 2f, sheet, true, 9f)
+            crease(canvas, sheet.top + h / 2f, sheet, false, 9f)
+        }
+
+        if (look.burnt) {
+            val radius = max(w, h) * 0.72f
+            val shader = RadialGradient(
+                sheet.centerX(), sheet.centerY(), radius,
+                intArrayOf(0, 0, ca((80 * k).toInt().coerceIn(0, 255), 0xFF7A18), ca((235 * k).toInt().coerceIn(0, 255), 0x1A0C04)),
+                floatArrayOf(0f, 0.55f, 0.82f, 1f), Shader.TileMode.CLAMP,
+            )
+            canvas.drawRect(sheet, Paint().apply { this.shader = shader })
+        }
+
+        if (look.blots) {
+            val rnd = Random(55)
+            val ink = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = ca(165, 0x14213D)
+                maskFilter = BlurMaskFilter(1.4f, BlurMaskFilter.Blur.NORMAL)
+            }
+            repeat(5) {
+                val cx = sheet.left + w * (0.08f + 0.84f * rnd.nextFloat())
+                val cy = sheet.top + h * (0.08f + 0.84f * rnd.nextFloat())
+                val rad = (5f + rnd.nextFloat() * 16f) * (0.6f + k * 0.6f)
+                canvas.drawCircle(cx, cy, rad, ink)
+                repeat(5) {
+                    val a = rnd.nextFloat() * 6.2832f
+                    val d = rad * (1.3f + rnd.nextFloat() * 2.2f)
+                    canvas.drawCircle(cx + kotlin.math.cos(a) * d, cy + kotlin.math.sin(a) * d, 0.8f + rnd.nextFloat() * 3f, ink)
+                }
+            }
+        }
+        canvas.restore()
     }
 
     /** Smallest scale so a w x h sheet rotated by [degrees] still fits inside the w x h canvas. */

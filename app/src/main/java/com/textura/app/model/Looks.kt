@@ -297,6 +297,124 @@ object Catalogue {
             margin = 0.07f, depth = Depth.Extrude, depthLength = 1f, depthAngle = 45f, sideColor = c(0x2A9D8F),
             gradientSide = true, highlight = false, bg = solid(0x264653),
         ),
+
+        // ---------------------------------------------------------------- SHAPES
+        Look(
+            id = "shape_heart", name = "Love heart", category = Category.Shapes,
+            fontId = "pacifico", textColor = c(0xFFFFFF), align = Align.Center, margin = 0.06f, lineSpacing = 1.0f,
+            textShape = TextShape.Heart, shapeColor = c(0xE8456B), bg = grad(160f, 0xFFE3EC, 0xFFC2D6),
+        ),
+        Look(
+            id = "shape_circle_badge", name = "Round badge", category = Category.Shapes,
+            fontId = "oswald", textColor = c(0x1A1A1A), bold = true, uppercase = true, align = Align.Center, margin = 0.05f,
+            textShape = TextShape.Circle, shapeColor = c(0xFFD84D), bg = solid(0x1B1B22),
+        ),
+        Look(
+            id = "shape_oval_cameo", name = "Cameo", category = Category.Shapes,
+            fontId = "eb_garamond", textColor = c(0x3A2412), align = Align.Center, margin = 0.06f,
+            textShape = TextShape.Oval, shapeColor = c(0xF1E6C8), bg = grad(160f, 0x6B1D2A, 0x2E0A12),
+        ),
+        Look(
+            id = "shape_bubble", name = "Speech bubble", category = Category.Shapes,
+            fontId = "poppins", textColor = c(0x1B2A4A), align = Align.Center, margin = 0.08f,
+            textShape = TextShape.Bubble, shapeColor = c(0xFFFFFF), bg = grad(150f, 0x4776E6, 0x8E54E9),
+        ),
+        Look(
+            id = "shape_arch", name = "Arch window", category = Category.Shapes,
+            fontId = "cinzel", textColor = c(0x4A3626), align = Align.Center, margin = 0.06f,
+            textShape = TextShape.Arch, shapeColor = c(0xEFE0CC), bg = solid(0xC9A68A),
+        ),
+        Look(
+            id = "shape_diamond", name = "Diamond", category = Category.Shapes,
+            fontId = "bebas_neue", textColor = c(0xFFFFFF), align = Align.Center, margin = 0.05f, uppercase = true,
+            textShape = TextShape.Diamond, shapeColor = c(0x16A39A), bg = solid(0x0F1F26),
+        ),
+        Look(
+            id = "shape_hexagon", name = "Hexagon", category = Category.Shapes,
+            fontId = "righteous", textColor = c(0xFFFFFF), align = Align.Center, margin = 0.05f,
+            textShape = TextShape.Hexagon, shapeColor = c(0x7A2BFF), bg = grad(160f, 0x1A0F3A, 0x07030F),
+        ),
+        Look(
+            id = "shape_star_poster", name = "Star", category = Category.Shapes,
+            fontId = "anton", textColor = c(0x1A1A1A), uppercase = true, align = Align.Center, margin = 0.04f,
+            textShape = TextShape.Star, shapeColor = c(0xFFE76B), bg = grad(150f, 0xFF4E50, 0xAA1E5A),
+        ),
+
+        // ---------------------------------------------------------------- FOIL & GLASS
+        Look(
+            id = "foil_gold", name = "Gold foil", category = Category.Art,
+            fontId = "playfair", foil = FoilType.Gold, bold = true, align = Align.Center, margin = 0.12f,
+            bg = grad(90f, 0x111116, 0x050507),
+            stickers = listOf(Sticker("f1", StickerType.Frame, 0.5f, 0.5f, 0.9f, 0f, c(0xD9A521), 0.9f)),
+        ),
+        Look(
+            id = "foil_rose", name = "Rose gold", category = Category.Art,
+            fontId = "dancing_script", foil = FoilType.RoseGold, bold = true, align = Align.Center, margin = 0.1f,
+            bg = grad(160f, 0x3A1530, 0x14061A),
+        ),
+        Look(
+            id = "foil_silver", name = "Silver foil", category = Category.Art,
+            fontId = "archivo_black", foil = FoilType.Silver, uppercase = true, align = Align.Justify, margin = 0.07f,
+            lineSpacing = 0.95f, bg = grad(160f, 0x0F2040, 0x050B1A),
+        ),
+        Look(
+            id = "foil_holo", name = "Holographic", category = Category.Art,
+            fontId = "bungee", foil = FoilType.Holo, align = Align.Center, margin = 0.09f,
+            shadow = true, shadowColor = ca(150, 0x7873F5), shadowBlur = 0.25f, shadowOffset = 0f,
+            bg = grad(0f, 0x16122E, 0x050410, type = GradientType.Radial),
+        ),
+        Look(
+            id = "glass_card", name = "Frosted glass", category = Category.Art,
+            fontId = "poppins", textColor = c(0xFFFFFF), align = Align.Center, margin = 0.09f,
+            paper = PaperType.Glass, paperColor = ca(70, 0xFFFFFF), paperInset = 0.08f,
+            bg = grad(150f, 0xFF512F, 0xDD2476, 0x4A1B6B, 0x1B6BC9),
+        ),
+        Look(
+            id = "glass_dark", name = "Dark glass", category = Category.Art,
+            fontId = "montserrat", textColor = c(0xF4F7FF), align = Align.Left, margin = 0.09f,
+            paper = PaperType.Glass, paperColor = ca(105, 0x0B1020), paperInset = 0.07f,
+            bg = grad(200f, 0x0F2027, 0x2C7A94, 0x16D9FF),
+        ),
+
+        // ---------------------------------------------------------------- SCENES & WEAR
+        Look(
+            id = "scene_desk", name = "Desk perspective", category = Category.Paper,
+            fontId = "caveat", textColor = c(0x1F3A93), handwritten = true, imperfection = 0.7f, margin = 0.06f,
+            fillHeight = false, paper = PaperType.Lined, paperColor = c(0xFFFDF4), paperInset = 0.07f, tilt = -2f,
+            tiltX = 20f, tiltY = -14f, light = LightType.Window, lightStrength = 0.55f,
+            bg = grad(60f, 0x6B4A2E, 0x8A6140, 0x4A301C),
+        ),
+        Look(
+            id = "scene_lamp_letter", name = "Lamplight letter", category = Category.Paper,
+            fontId = "great_vibes", textColor = c(0x2C1B0E), handwritten = true, imperfection = 0.5f,
+            lineSpacing = 1.05f, margin = 0.09f, fillHeight = false, align = Align.Center,
+            paper = PaperType.Letter, paperColor = c(0xE6D2A2), paperInset = 0.05f, tilt = 1.5f,
+            light = LightType.Lamp, lightStrength = 0.75f, folds = true,
+            bg = grad(90f, 0x2A1A10, 0x0D0805),
+        ),
+        Look(
+            id = "scene_spotlight", name = "Spotlight", category = Category.Art,
+            fontId = "anton", textColor = c(0xFFFFFF), uppercase = true, align = Align.Center, margin = 0.09f,
+            light = LightType.Spotlight, lightStrength = 0.85f, bg = grad(90f, 0x20202C, 0x0A0A10),
+        ),
+        Look(
+            id = "wear_burnt_scroll", name = "Burnt scroll", category = Category.Paper,
+            fontId = "eb_garamond", textColor = c(0x2A1608), align = Align.Justify, margin = 0.09f,
+            paper = PaperType.Parchment, paperColor = c(0xE0C48C), paperInset = 0.06f, grain = 0.8f,
+            burnt = true, torn = true, stains = true, wear = 0.9f, bg = solid(0x1A120C),
+        ),
+        Look(
+            id = "wear_coffee_note", name = "Coffee note", category = Category.Paper,
+            fontId = "kalam", textColor = c(0x22304F), handwritten = true, imperfection = 0.6f, margin = 0.06f,
+            fillHeight = false, paper = PaperType.Lined, paperColor = c(0xFBF8EF), paperInset = 0.05f, tilt = -1.5f,
+            stains = true, folds = true, blots = true, bg = grad(60f, 0x5A3C24, 0x3A2616),
+        ),
+        Look(
+            id = "wear_torn_page", name = "Torn page", category = Category.Paper,
+            fontId = "reenie_beanie", textColor = c(0x2B2B33), handwritten = true, imperfection = 0.7f, margin = 0.08f,
+            paper = PaperType.Graph, paperColor = c(0xF7FAFC), paperInset = 0.05f, tilt = 2.2f,
+            torn = true, blots = true, bg = solid(0x26303D),
+        ),
     )
 
     fun byId(id: String): Look? = all.firstOrNull { it.id == id }

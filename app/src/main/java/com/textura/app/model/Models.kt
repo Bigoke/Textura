@@ -16,10 +16,28 @@ enum class CanvasShape(
     Portrait("Portrait", 3, 4),
     Landscape("Landscape", 4, 3),
     Square("Square", 1, 1),
-    Story("Story", 9, 16),
-    Block("Block", 6, 5, forceJustify = true, marginScale = 0.55f);
+    Story("Story 9:16", 9, 16),
+    Block("Block", 6, 5, forceJustify = true, marginScale = 0.55f),
+    Insta("Insta post 4:5", 4, 5),
+    Wide("Wide 16:9", 16, 9),
+    Pin("Pinterest 2:3", 2, 3),
+    A4("A4 page", 210, 297),
+    Cover("Cover banner", 205, 78);
 
     val ratio: Float get() = wr.toFloat() / hr.toFloat()
+}
+
+/** The outline the text itself is poured into (inside the canvas). */
+enum class TextShape(val label: String) {
+    Rect("Rectangle"),
+    Circle("Circle"),
+    Oval("Oval"),
+    Heart("Heart"),
+    Star("Star"),
+    Diamond("Diamond"),
+    Hexagon("Hexagon"),
+    Bubble("Bubble"),
+    Arch("Arch"),
 }
 
 enum class Category(val label: String) {
@@ -28,12 +46,15 @@ enum class Category(val label: String) {
     Handwritten("Handwritten"),
     Art("Art"),
     ThreeD("3D"),
+    Shapes("Shapes"),
 }
 
 enum class BgKind { Solid, Gradient, Image }
 enum class GradientType { Linear, Radial, Sweep }
 enum class Depth(val label: String) { Flat("Flat"), Emboss("Emboss"), Engrave("Engrave"), Extrude("3D") }
 enum class Align { Left, Center, Right, Justify }
+enum class FoilType(val label: String) { None("None"), Gold("Gold"), Silver("Silver"), RoseGold("Rose gold"), Copper("Copper"), Holo("Holographic") }
+enum class LightType(val label: String) { None("None"), Window("Window"), Lamp("Lamp"), Spotlight("Spotlight") }
 
 enum class PaperType(val label: String, val leftPad: Float = 0f, val pad: Float = 0f) {
     None("None"),
@@ -47,7 +68,36 @@ enum class PaperType(val label: String, val leftPad: Float = 0f, val pad: Float 
     Chalkboard("Chalkboard", pad = 0.035f),
     Newsprint("Newsprint"),
     Kraft("Kraft"),
+    Glass("Glass card"),
 }
+
+enum class StickerType(val label: String, val symbol: String) {
+    QuoteOpen("Open quote", "“"),
+    QuoteClose("Close quote", "”"),
+    Line("Line", "—"),
+    DoubleLine("Double line", "="),
+    Frame("Frame", "□"),
+    Corners("Corners", "⌜"),
+    Tape("Tape", "▭"),
+    Star("Star", "★"),
+    Heart("Heart", "♥"),
+    Sparkle("Sparkle", "✦"),
+    Squiggle("Squiggle", "∿"),
+    Arrow("Arrow", "→"),
+    Ring("Ring", "○"),
+    Dots("Dots", "⋯"),
+}
+
+data class Sticker(
+    val id: String = "",
+    val type: StickerType = StickerType.Star,
+    val x: Float = 0.5f,
+    val y: Float = 0.5f,
+    val size: Float = 0.2f,
+    val rot: Float = 0f,
+    val color: Int = c(0xFFFFFF),
+    val alpha: Float = 1f,
+)
 
 data class Background(
     val kind: BgKind = BgKind.Solid,
@@ -71,6 +121,7 @@ data class Look(
     // text
     val textColor: Int = c(0xFFFFFF),
     val textColor2: Int? = null,
+    val foil: FoilType = FoilType.None,
     val bold: Boolean = false,
     val uppercase: Boolean = false,
     val align: Align = Align.Left,
@@ -78,6 +129,13 @@ data class Look(
     val lineSpacing: Float = 1.0f,
     val letterSpacing: Float = 0f,
     val fillHeight: Boolean = true,
+    val textScale: Float = 1f,
+    val offsetX: Float = 0f,
+    val offsetY: Float = 0f,
+
+    // text outline shape
+    val textShape: TextShape = TextShape.Rect,
+    val shapeColor: Int? = null,
 
     // typed / handwritten realism
     val handwritten: Boolean = false,
@@ -107,5 +165,20 @@ data class Look(
     val tilt: Float = 0f,
     val grain: Float = 0.5f,
 
+    // paper damage
+    val stains: Boolean = false,
+    val folds: Boolean = false,
+    val burnt: Boolean = false,
+    val torn: Boolean = false,
+    val blots: Boolean = false,
+    val wear: Float = 0.7f,
+
+    // scene
+    val tiltX: Float = 0f,
+    val tiltY: Float = 0f,
+    val light: LightType = LightType.None,
+    val lightStrength: Float = 0.5f,
+
+    val stickers: List<Sticker> = emptyList(),
     val bg: Background = Background(),
 )
