@@ -70,7 +70,7 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
     var signOn by remember { mutableStateOf(vm.settings.signatureOn && vm.settings.signature.isNotBlank()) }
     var busy by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    var videoMode by remember { mutableStateOf(false) }
+    var showVideo by remember { mutableStateOf(false) }
     var job by remember { mutableStateOf<Job?>(null) }
 
     val (dw, dh) = Renderer.designSize(vm.shape)
@@ -99,21 +99,6 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
         }
     }
 
-    fun runVideo() {
-        if (busy) return
-        busy = true
-        progress = 0 to 1
-        videoMode = true
-        job = scope.launch {
-            val ok = vm.exportVideo(look, longEdge, signature) { d, t -> progress = d to t }
-            busy = false
-            progress = null
-            videoMode = false
-            Toast.makeText(ctx, if (ok) "Video saved to Movies/Textura" else "Could not create the video", Toast.LENGTH_LONG).show()
-            if (ok) onDismiss()
-        }
-    }
-
     fun runBatch(favoritesOnly: Boolean) {
         if (busy) return
         val list = if (favoritesOnly) vm.favoriteLooks() else vm.looks.filter { it.id != AppViewModel.WORKING_ID }
@@ -132,6 +117,10 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
             Toast.makeText(ctx, "Saved $saved images to Pictures/Textura/All looks", Toast.LENGTH_LONG).show()
             onDismiss()
         }
+    }
+
+    if (showVideo) {
+        VideoSheet(vm, look, signature, onClose = { showVideo = false }, onDone = { showVideo = false; onDismiss() })
     }
 
     ModalBottomSheet(onDismissRequest = { if (!busy) onDismiss() }, sheetState = sheetState) {
@@ -185,7 +174,7 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
             if (busy) {
                 val p = progress
                 if (p != null) {
-                    Text((if (videoMode) "Recording " else "Saving ") + "${p.first} / ${p.second}", style = MaterialTheme.typography.bodyMedium)
+                    Text("Saving " + "${p.first} / ${p.second}", style = MaterialTheme.typography.bodyMedium)
                     LinearProgressIndicator(
                         progress = { if (p.second == 0) 0f else p.first.toFloat() / p.second },
                         modifier = Modifier
@@ -229,8 +218,8 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
                     OutlinedButton(onClick = { run(true, Exporter.FACEBOOK) }, modifier = Modifier.weight(1f)) { Text("Facebook") }
                 }
 
-                SectionTitle("Video")
-                OutlinedButton(onClick = { runVideo() }, modifier = Modifier.fillMaxWidth()) { Text("Typewriter video (MP4)") }
+                SectionTitle("Video and GIF")
+                OutlinedButton(onClick = { showVideo = true }, modifier = Modifier.fillMaxWidth()) { Text("Video & GIF…") }
 
                 SectionTitle("Batch (this text in many looks)")
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {

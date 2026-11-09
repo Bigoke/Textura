@@ -387,14 +387,37 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
 
-    suspend fun exportVideo(look: Look, longEdge: Int, signature: Watermark?, onProgress: (Int, Int) -> Unit): Boolean {
+    var videoOptions by mutableStateOf(com.textura.app.data.VideoOptions())
+
+    fun updateVideo(t: (com.textura.app.data.VideoOptions) -> com.textura.app.data.VideoOptions) {
+        videoOptions = t(videoOptions)
+    }
+
+    /** Copies a picked audio file into app storage so it stays readable. */
+    fun importMusic(uri: android.net.Uri): Boolean {
+        val ctx = getApplication<Application>()
+        return runCatching {
+            val dir = java.io.File(ctx.filesDir, "music").apply { mkdirs() }
+            val f = java.io.File(dir, "import.audio")
+            ctx.contentResolver.openInputStream(uri)?.use { i -> f.outputStream().use { o -> i.copyTo(o) } } ?: return false
+            videoOptions = videoOptions.copy(musicPath = f.absolutePath, music = com.textura.app.data.MusicChoice.Imported)
+            true
+        }.getOrDefault(false)
+    }
+
+    suspend fun exportAnimation(
+        look: Look,
+        opts: com.textura.app.data.VideoOptions,
+        signature: Watermark?,
+        onProgress: (Int, Int) -> Unit,
+    ): com.textura.app.data.VideoExporter.Result {
         val ctx = getApplication<Application>()
         val t = text
         val sh = shape
         return withContext(Dispatchers.Default) {
             runCatching {
-                com.textura.app.data.VideoExporter.export(ctx, look, t, sh, longEdge, signature, onProgress, { !isActive })
-            }.getOrDefault(false)
+                com.textura.app.data.VideoExporter.export(ctx, look, t, sh, opts, signature, onProgress, { !isActive })
+            }.getOrDefault(com.textura.app.data.VideoExporter.Result.Failed)
         }
     }
 

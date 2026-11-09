@@ -29,6 +29,8 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /** Optional signature added at export time. [position]: 0 left, 1 centre, 2 right. */
+enum class RevealMode { Typewriter, Handwriting, Words, Lines, Sweep }
+
 data class Watermark(val text: String, val position: Int = 1)
 
 object Renderer {
@@ -49,6 +51,8 @@ object Renderer {
         reveal: Float = 1f,
         watermark: Watermark? = null,
         exactSize: Pair<Int, Int>? = null,
+        revealMode: RevealMode = RevealMode.Typewriter,
+        pen: Boolean = false,
     ): Bitmap {
         val (dw, dh) = designSize(shape)
         val scale = longEdgePx / max(dw, dh)
@@ -57,7 +61,7 @@ object Renderer {
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         canvas.scale(w / dw, h / dh)
-        draw(canvas, context, look, text, shape, scale, transparent, reveal, watermark)
+        draw(canvas, context, look, text, shape, scale, transparent, reveal, watermark, revealMode, pen)
         return bmp
     }
 
@@ -71,6 +75,8 @@ object Renderer {
         transparent: Boolean,
         reveal: Float = 1f,
         watermark: Watermark? = null,
+        revealMode: RevealMode = RevealMode.Typewriter,
+        pen: Boolean = false,
     ) {
         val (dw, dh) = designSize(shape)
         val appContext = context.applicationContext
@@ -152,7 +158,7 @@ object Renderer {
 
         canvas.save()
         canvas.translate(look.offsetX * dw, look.offsetY * dh)
-        drawText(canvas, look, tfOf, result, content, reveal)
+        drawText(canvas, look, tfOf, result, content, reveal, revealMode, pen)
         canvas.restore()
 
         canvas.restore() // sheet
@@ -209,9 +215,12 @@ object Renderer {
         r: TextEngine.Result,
         content: RectF,
         reveal: Float,
+        mode: RevealMode,
+        pen: Boolean,
     ) {
         val size = r.size
-        val placed = if (reveal >= 0.999f) r.placed else truncate(r.placed, reveal)
+        val revealed = if (reveal >= 0.999f) null else applyReveal(r.placed, reveal, mode, size, content)
+        val placed = revealed?.placed ?: r.placed
 
         fun base(): TextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = tfOf(look.fontId)
@@ -310,6 +319,138 @@ object Renderer {
                 }
             }
         }
+
+        if (pen && revealed != null && revealed.hasTip) {
+            drawPenTip(canvas, look, mode, revealed, size, content)
+        }
+    }
+
+
+
+    private class Revealed(
+        val placed: List<TextEngine.Placed>,
+        val hasTip: Boolean = false,
+        val tipX: Float = 0f,
+        val tipY: Float = 0f,
+        val tipRot: Float = 0f,
+    )
+
+    private fun applyReveal(
+        placed: List<TextEngine.Placed>,
+        fraction: Float,
+        mode: RevealMode,
+        size: Float,
+        content: RectF,
+    ): Revealed {
+        val f = fraction.coerceIn(0f, 1f)
+        when (mode) {
+            RevealMode.Typewriter -> {
+                val total = placed.sumOf { it.s.length }
+                var remaining = (total * f).roundToInt()
+                val out = ArrayList<TextEngine.Placed>()
+                var tip: Revealed? = null
+                for (p in placed) {
+                    if (remaining <= 0) break
+                    var cut = min(remaining, p.s.length)
+                    if (cut > 0 && cut < p.s.length && Character.isHighSurrogate(p.s[cut - 1])) cut--
+                    if (cut > 0) {
+                        out.add(p.copy(s = p.s.substring(0, cut)))
+                        tip = Revealed(out, true, p.x + p.w * cut / max(1, p.s.length), p.y, p.rot)
+                    }
+                    remaining -= p.s.length
+                }
+                return tip ?: Revealed(out)
+            }
+            RevealMode.Handwriting -> {
+                val total = placed.sumOf { max(it.w, 1f).toDouble() }.toFloat()
+                val target = total * f
+                var acc = 0f
+                val out = ArrayList<TextEngine.Placed>()
+                for (p in placed) {
+                    val w = max(p.w, 1f)
+                    if (acc + w <= target) {
+                        out.add(p)
+                    } else {
+                        if (acc < target) {
+                            val c = (target - acc) / w
+                            out.add(p.copy(clip = c))
+                            return Revealed(out, true, p.x + p.w * c, p.y, p.rot)
+                        }
+                        break
+                    }
+                    acc += w
+                }
+                return Revealed(out)
+            }
+            RevealMode.Words -> {
+                val n = placed.size
+                val pos = f * n
+                val k = pos.toInt()
+                val out = ArrayList<TextEngine.Placed>()
+                for (i in 0 until min(k, n)) out.add(placed[i])
+                if (k < n) {
+                    val part = (pos - k)
+                    if (part > 0.01f) out.add(placed[k].copy(alpha = placed[k].alpha * part))
+                }
+                return Revealed(out)
+            }
+            RevealMode.Lines -> {
+                val order = placed.sortedBy { it.y }
+                val lineOf = IntArray(order.size)
+                var line = 0
+                for (i in order.indices) {
+                    if (i > 0 && order[i].y - order[i - 1].y > size * 0.45f) line++
+                    lineOf[i] = line
+                }
+                val lines = line + 1
+                val pos = f * lines
+                val k = pos.toInt()
+                val out = ArrayList<TextEngine.Placed>()
+                for (i in order.indices) {
+                    val l = lineOf[i]
+                    if (l < k) out.add(order[i])
+                    else if (l == k && pos - k > 0.01f) out.add(order[i].copy(alpha = order[i].alpha * (pos - k)))
+                }
+                return Revealed(out)
+            }
+            RevealMode.Sweep -> {
+                val clipX = content.left + f * content.width()
+                val out = ArrayList<TextEngine.Placed>()
+                for (p in placed) {
+                    val c = ((clipX - p.x) / max(p.w, 1f)).coerceIn(0f, 1f)
+                    if (c > 0f) out.add(if (c >= 1f) p else p.copy(clip = c))
+                }
+                return Revealed(out)
+            }
+        }
+        @Suppress("UNREACHABLE_CODE")
+        return Revealed(placed)
+    }
+
+    private fun drawPenTip(canvas: Canvas, look: Look, mode: RevealMode, r: Revealed, size: Float, content: RectF) {
+        val ps = size.coerceIn(16f, max(16f, content.height() * 0.09f))
+        canvas.save()
+        canvas.translate(r.tipX, r.tipY)
+        if (r.tipRot != 0f) canvas.rotate(r.tipRot)
+        if (mode == RevealMode.Typewriter) {
+            val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = look.textColor; alpha = 220 }
+            canvas.drawRect(ps * 0.02f, -size * 0.78f, ps * 0.02f + max(1.5f, size * 0.055f), size * 0.12f, p)
+        } else {
+            val body = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = 0xFF2B2B33.toInt(); strokeWidth = ps * 0.17f; strokeCap = Paint.Cap.ROUND; style = Paint.Style.STROKE
+                setShadowLayer(ps * 0.12f, ps * 0.05f, ps * 0.08f, Color.argb(90, 0, 0, 0))
+            }
+            canvas.drawLine(ps * 0.13f, -ps * 0.36f, ps * 0.95f, -ps * 1.85f, body)
+            val nib = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFC9A227.toInt(); style = Paint.Style.FILL }
+            canvas.drawPath(Path().apply {
+                moveTo(0f, 0f); lineTo(ps * 0.02f, -ps * 0.42f); lineTo(ps * 0.24f, -ps * 0.32f); close()
+            }, nib)
+            val shine = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(130, 255, 255, 255); strokeWidth = ps * 0.04f; strokeCap = Paint.Cap.ROUND; style = Paint.Style.STROKE
+            }
+            canvas.drawLine(ps * 0.2f, -ps * 0.55f, ps * 0.85f, -ps * 1.7f, shine)
+        }
+        canvas.restore()
     }
 
     /** Keeps only the first [fraction] of all characters, used by the typewriter animation. */
@@ -362,9 +503,13 @@ object Renderer {
                 paint.color = color0
             }
             paint.alpha = (Color.alpha(paint.color) * p.alpha).roundToInt().coerceIn(0, 255)
-            if (p.rot != 0f) {
+            if (p.rot != 0f || p.clip < 1f) {
                 canvas.save()
-                canvas.rotate(p.rot, px, py)
+                if (p.rot != 0f) canvas.rotate(p.rot, px, py)
+                if (p.clip < 1f) {
+                    val sc = size * p.st.scale
+                    canvas.clipRect(px - sc * 0.4f, py - sc * 1.3f, px + p.w * p.clip, py + sc * 0.6f)
+                }
                 canvas.drawText(p.s, px, py, paint)
                 canvas.restore()
             } else {
@@ -376,7 +521,7 @@ object Renderer {
                 under.alpha = paint.alpha
                 val th = max(1f, size * p.st.scale * 0.05f)
                 val uy = py + size * p.st.scale * 0.13f
-                canvas.drawRect(px, uy, px + p.w, uy + th, under)
+                canvas.drawRect(px, uy, px + p.w * p.clip, uy + th, under)
             }
         }
         paint.shader = shader0

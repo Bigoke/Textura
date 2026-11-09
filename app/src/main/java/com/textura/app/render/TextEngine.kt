@@ -121,6 +121,8 @@ object TextEngine {
         val alpha: Float,
         val st: WordStyle,
         val w: Float,
+        /** 0..1: only this fraction of the word's width is drawn (left to right), used by video reveals. */
+        val clip: Float = 1f,
     )
 
     class Result(
