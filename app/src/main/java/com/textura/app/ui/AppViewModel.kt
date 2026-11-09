@@ -16,6 +16,10 @@ import com.textura.app.data.Settings
 import com.textura.app.data.Store
 import com.textura.app.model.CanvasShape
 import com.textura.app.model.Align
+import com.textura.app.model.AppFont
+import com.textura.app.model.FontGroup
+import com.textura.app.model.Fonts
+import com.textura.app.render.Watermark
 import com.textura.app.model.Catalogue
 import com.textura.app.model.Category
 import com.textura.app.model.Depth
@@ -24,6 +28,7 @@ import com.textura.app.render.Markup
 import com.textura.app.model.Look
 import com.textura.app.render.Renderer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.util.UUID
 import kotlin.math.max
@@ -39,7 +44,7 @@ object Samples {
     )
 }
 
-enum class ExportResult { Saved, Shared, Failed }
+enum class ExportResult { Saved, Shared, Failed, NoApp }
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
@@ -48,6 +53,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private val store = Store(app)
+
+    /** Bumped when fonts are added or removed so the font lists refresh. */
+    var fontsVersion by mutableIntStateOf(0)
+
+    init {
+        Fonts.user = store.loadUserFonts().map { AppFont(it.id, it.label, FontGroup.Mine, it.path) }
+    }
 
     var settings by mutableStateOf(store.loadSettings()); private set
     var text by mutableStateOf(store.loadText() ?: Samples.all.first()); private set
@@ -235,10 +247,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.saveHistory(history)
     }
 
-    private fun record(look: Look, bmp: Bitmap) {
-        val id = UUID.randomUUID().toString()
+    private fun makeThumb(bmp: Bitmap): Bitmap {
         val f = 480f / max(bmp.width, bmp.height)
-        val thumb = Bitmap.createScaledBitmap(bmp, max(2, (bmp.width * f).roundToInt()), max(2, (bmp.height * f).roundToInt()), true)
+        return Bitmap.createScaledBitmap(bmp, max(2, (bmp.width * f).roundToInt()), max(2, (bmp.height * f).roundToInt()), true)
+    }
+
+    private fun record(look: Look, thumb: Bitmap) {
+        val id = UUID.randomUUID().toString()
         store.saveThumb(id, thumb)
         val item = HistoryItem(id, System.currentTimeMillis(), text, shape, look.copy(id = look.id))
         val next = listOf(item) + history
@@ -248,31 +263,156 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------------------------------------------------------------- export
+    /** Splits [raw] into [n] pages at word boundaries, keeping formatting tags balanced on every page. */
+    fun splitPages(raw: String, n: Int): List<String> {
+        if (n <= 1) return listOf(raw)
+        val tokens = Regex("\\S+|\\s+").findAll(raw).map { it.value }.toList()
+        val total = tokens.sumOf { Markup.strip(it).length }.coerceAtLeast(1)
+        val target = total.toFloat() / n
+        val pages = ArrayList<String>()
+        val cur = StringBuilder()
+        val open = ArrayList<Pair<String, String>>() // tag name to full opening tag
+        var acc = 0
+        for (tok in tokens) {
+            val isWord = !tok[0].isWhitespace()
+            if (isWord && pages.size < n - 1 && acc >= target * (pages.size + 1) && cur.isNotBlank()) {
+                for (o in open.asReversed()) cur.append("[/").append(o.first).append("]")
+                pages.add(cur.toString().trim())
+                cur.setLength(0)
+                for (o in open) cur.append(o.second)
+            }
+            cur.append(tok)
+            acc += Markup.strip(tok).length
+            for (m in Markup.TAG.findAll(tok)) {
+                val name = m.groupValues[2]
+                if (m.groupValues[1] == "/") {
+                    val idx = open.indexOfLast { it.first == name }
+                    if (idx >= 0) open.removeAt(idx)
+                } else open.add(name to m.value)
+            }
+        }
+        pages.add(cur.toString().trim())
+        return pages.filter { it.isNotBlank() }.ifEmpty { listOf(raw) }
+    }
+
     suspend fun export(
         look: Look,
         share: Boolean,
         longEdge: Int,
         format: ImageFormat,
         transparent: Boolean,
+        pages: Int = 1,
+        signature: Watermark? = null,
+        targetPackage: String? = null,
     ): ExportResult {
         val ctx = getApplication<Application>()
         val s = settings
-        val currentText = text
+        val pageTexts = splitPages(text, pages)
         val currentShape = shape
+        val png = transparent && format == ImageFormat.PNG
         return withContext(Dispatchers.Default) {
-            val bmp = try {
-                Renderer.render(ctx, look, currentText, currentShape, longEdge, transparent && format == ImageFormat.PNG)
-            } catch (e: OutOfMemoryError) {
-                return@withContext ExportResult.Failed
+            val uris = ArrayList<android.net.Uri>()
+            var thumb: Bitmap? = null
+            if (share) Exporter.clearShareCache(ctx)
+            for ((i, pageText) in pageTexts.withIndex()) {
+                val bmp = try {
+                    Renderer.render(ctx, look, pageText, currentShape, longEdge, png, 1f, signature)
+                } catch (e: OutOfMemoryError) {
+                    return@withContext ExportResult.Failed
+                }
+                if (i == 0) thumb = makeThumb(bmp)
+                if (share) {
+                    val uri = Exporter.writeToShareCache(ctx, bmp, format, s.jpgQuality, i)
+                    if (uri != null) uris.add(uri)
+                } else {
+                    val saved = Exporter.saveToGallery(
+                        ctx, bmp, format, s.jpgQuality,
+                        subfolder = if (pageTexts.size > 1) "Carousel" else null,
+                        suffix = if (pageTexts.size > 1) "_p${i + 1}" else "",
+                    )
+                    if (saved == null) { bmp.recycle(); return@withContext ExportResult.Failed }
+                }
+                bmp.recycle()
             }
-            val ok = if (share) {
-                Exporter.share(ctx, bmp, format, s.jpgQuality)
-            } else {
-                Exporter.saveToGallery(ctx, bmp, format, s.jpgQuality) != null
+            val ok = if (share) withContext(Dispatchers.Main) { Exporter.shareUris(ctx, uris, format, targetPackage) } else true
+            if (ok) thumb?.let { t -> withContext(Dispatchers.Main) { record(look, t) } }
+            when {
+                !ok && targetPackage != null -> ExportResult.NoApp
+                !ok -> ExportResult.Failed
+                share -> ExportResult.Shared
+                else -> ExportResult.Saved
             }
-            if (ok) withContext(Dispatchers.Main) { record(look, bmp) }
-            bmp.recycle()
-            if (!ok) ExportResult.Failed else if (share) ExportResult.Shared else ExportResult.Saved
         }
+    }
+
+    /** Saves the current text in each of [looks] to Pictures/Textura/All looks. Returns how many were saved. */
+    suspend fun exportBatch(
+        looks: List<Look>,
+        longEdge: Int,
+        format: ImageFormat,
+        signature: Watermark?,
+        onProgress: (done: Int, total: Int) -> Unit,
+    ): Int {
+        val ctx = getApplication<Application>()
+        val s = settings
+        val t = text
+        val sh = shape
+        return withContext(Dispatchers.Default) {
+            var saved = 0
+            for ((i, look) in looks.withIndex()) {
+                ensureActive()
+                onProgress(i, looks.size)
+                val bmp = try {
+                    Renderer.render(ctx, look, t, sh, longEdge, false, 1f, signature)
+                } catch (e: OutOfMemoryError) {
+                    break
+                }
+                val uri = Exporter.saveToGallery(ctx, bmp, format, s.jpgQuality, subfolder = "All looks", suffix = "_" + look.id.take(24))
+                bmp.recycle()
+                if (uri != null) saved++
+            }
+            onProgress(looks.size, looks.size)
+            saved
+        }
+    }
+
+    // ---------------------------------------------------------------- fonts, backup
+    fun importFont(uri: android.net.Uri): Boolean {
+        val f = store.importFont(uri) ?: return false
+        val list = store.loadUserFonts() + f
+        store.saveUserFonts(list)
+        Fonts.user = list.map { AppFont(it.id, it.label, FontGroup.Mine, it.path) }
+        fontsVersion++
+        return true
+    }
+
+    fun deleteFont(id: String) {
+        val list = store.loadUserFonts()
+        list.firstOrNull { it.id == id }?.let { runCatching { java.io.File(it.path).delete() } }
+        val rest = list.filter { it.id != id }
+        store.saveUserFonts(rest)
+        Fonts.forget(id)
+        Fonts.user = rest.map { AppFont(it.id, it.label, FontGroup.Mine, it.path) }
+        fontsVersion++
+    }
+
+    fun backupJson(): String = store.backupJson(custom, favorites, settings, text)
+
+    fun restoreBackup(json: String): Boolean {
+        val b = store.parseBackup(json) ?: return false
+        custom = custom.filter { c -> b.custom.none { it.id == c.id } } + b.custom
+        favorites = favorites + b.favorites
+        settings = b.settings
+        store.saveCustom(custom)
+        store.saveFavorites(favorites)
+        store.saveSettings(settings)
+        if (b.text.isNotBlank()) updateText(b.text)
+        shape = settings.defaultShape
+        return true
+    }
+
+    /** Adds text found in a photo to the text box. */
+    fun useScannedText(found: String) {
+        if (found.isNotBlank()) updateText(found.trim())
     }
 }

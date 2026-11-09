@@ -29,6 +29,9 @@ data class Settings(
     val jpgQuality: Int = 92,
     val haptics: Boolean = true,
     val smartOrder: Boolean = true,
+    val signature: String = "",
+    val signatureOn: Boolean = false,
+    val signaturePos: Int = 1,
 )
 
 data class HistoryItem(
@@ -37,6 +40,16 @@ data class HistoryItem(
     val text: String = "",
     val shape: CanvasShape = CanvasShape.Portrait,
     val look: Look = Look(),
+)
+
+data class UserFont(val id: String = "", val label: String = "", val path: String = "")
+
+data class Backup(
+    val version: Int = 1,
+    val custom: List<Look> = emptyList(),
+    val favorites: List<String> = emptyList(),
+    val settings: Settings = Settings(),
+    val text: String = "",
 )
 
 /** Small JSON-in-SharedPreferences store. Everything stays on the device. */
@@ -63,6 +76,35 @@ class Store(context: Context) {
 
     fun loadCustom(): List<Look> = read("custom", object : TypeToken<List<Look>>() {}, emptyList<Look>())
     fun saveCustom(l: List<Look>) = write("custom", l)
+
+    fun loadUserFonts(): List<UserFont> =
+        read("userfonts", object : TypeToken<List<UserFont>>() {}, emptyList<UserFont>()).filter { File(it.path).exists() }
+
+    fun saveUserFonts(f: List<UserFont>) = write("userfonts", f)
+
+    fun backupJson(custom: List<Look>, favorites: Set<String>, settings: Settings, text: String): String =
+        gson.toJson(Backup(1, custom, favorites.toList(), settings, text))
+
+    fun parseBackup(json: String): Backup? =
+        runCatching { gson.fromJson(json, Backup::class.java) }.getOrNull()?.takeIf { it.version >= 1 }
+
+    /** Copies a picked .ttf/.otf into app storage; returns the new font entry or null if it cannot be used. */
+    fun importFont(uri: Uri): UserFont? = runCatching {
+        val resolver = app.contentResolver
+        var name = "My font"
+        resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cur ->
+            if (cur.moveToFirst()) name = cur.getString(0) ?: name
+        }
+        val label = name.substringBeforeLast('.').replace('_', ' ').replace('-', ' ').take(28)
+        val dir = File(app.filesDir, "userfonts").apply { mkdirs() }
+        val id = "user_" + UUID.randomUUID().toString().take(8)
+        val file = File(dir, "$id.ttf")
+        resolver.openInputStream(uri)?.use { input -> FileOutputStream(file).use { input.copyTo(it) } } ?: return null
+        val tf = android.graphics.Typeface.createFromFile(file)
+        val ok = android.graphics.Paint().apply { typeface = tf }.hasGlyph("A")
+        if (!ok) { file.delete(); return null }
+        UserFont(id, label, file.absolutePath)
+    }.getOrNull()
 
     fun loadHistory(): List<HistoryItem> = read("history", object : TypeToken<List<HistoryItem>>() {}, emptyList<HistoryItem>())
     fun saveHistory(h: List<HistoryItem>) = write("history", h)

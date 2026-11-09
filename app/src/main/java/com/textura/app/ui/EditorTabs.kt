@@ -190,6 +190,7 @@ fun TextTab(vm: AppViewModel, look: Look) {
 @Composable
 fun FontTab(vm: AppViewModel, look: Look) {
     var group by remember { mutableStateOf<FontGroup?>(null) }
+    @Suppress("UNUSED_VARIABLE") val fontsVersion = vm.fontsVersion
     val groups = FontGroup.entries.filter { g -> Fonts.all.any { it.group == g } }
     ChipRow(listOf<FontGroup?>(null) + groups, group, { it?.label ?: "All" }) { group = it }
     val fonts = Fonts.all.filter { group == null || it.group == group }
@@ -201,6 +202,23 @@ fun FontTab(vm: AppViewModel, look: Look) {
             FontCard(f, f.id == look.fontId) { vm.edit { it.copy(fontId = f.id) } }
         }
     }
+    val ctx = LocalContext.current
+    val fontPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val ok = vm.importFont(uri)
+            Toast.makeText(ctx, if (ok) "Font added under My fonts" else "That file is not a usable font", Toast.LENGTH_SHORT).show()
+            if (ok) group = FontGroup.Mine
+        }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { fontPicker.launch(arrayOf("font/ttf", "font/otf", "application/x-font-ttf", "application/x-font-otf", "application/octet-stream", "*/*")) }) {
+            Text("Import font (.ttf / .otf)")
+        }
+        if (Fonts.user.any { it.id == look.fontId }) {
+            OutlinedButton(onClick = { vm.deleteFont(look.fontId); vm.edit { it.copy(fontId = "montserrat") } }) { Text("Delete this font") }
+        }
+    }
+    Spacer(Modifier.height(8.dp))
     LabeledSlider("Letter spacing", look.letterSpacing, -0.05f..0.3f, { v -> vm.edit { it.copy(letterSpacing = v) } })
     SwitchRow("Handwritten movement", look.handwritten) { on -> vm.edit { it.copy(handwritten = on) } }
     LabeledSlider(
