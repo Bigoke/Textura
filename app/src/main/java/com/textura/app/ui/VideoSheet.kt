@@ -60,8 +60,8 @@ import kotlinx.coroutines.withContext
 import kotlin.math.ceil
 
 private val WriteTimes = listOf(0f to "Auto", 4f to "4 s", 8f to "8 s", 12f to "12 s", 20f to "20 s")
-private val VideoSizes = listOf(720 to "720", 1080 to "1080", 1280 to "1280", 1440 to "1440")
-private val VideoFps = listOf(24 to "24 fps", 30 to "30 fps")
+private val VideoSizes = listOf(720 to "HD 720", 1080 to "Full HD 1080", 1440 to "QHD 1440", 2160 to "2K 2160", 3840 to "4K 3840")
+private val VideoFps = listOf(24 to "24 fps", 30 to "30 fps", 60 to "60 fps")
 private val GifSizes = listOf(360 to "360", 480 to "480", 540 to "540", 720 to "720")
 private val GifFps = listOf(10 to "10 fps", 12 to "12 fps", 15 to "15 fps")
 
@@ -106,9 +106,9 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
         }
     }
 
-    val write = if (o.seconds > 0f) o.seconds else (Markup.strip(vm.text).length / 22f).coerceIn(3f, 9f)
+    val write = if (o.seconds > 0f) o.seconds else VideoFrames.autoWrite(vm.text, VideoFrames.resolveMode(look, o.style))
     val total = (if (o.intro) o.introSec else 0f) + write + o.hold + (if (o.outro) o.outroSec else 0f) + (if (o.loop) 0.5f else 0f)
-    val (dw, dh) = VideoExporter.dims(vm.shape, if (o.gif) o.gifEdge else minOf(o.longEdge, 1440), if (o.gif) 2 else 16)
+    val (dw, dh) = VideoExporter.dims(vm.shape, if (o.gif) o.gifEdge else o.longEdge, if (o.gif) 2 else 16)
 
     fun create() {
         if (busy) return
@@ -120,7 +120,7 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
             progress = null
             when (r) {
                 VideoExporter.Result.Ok -> {
-                    Toast.makeText(ctx, if (o.gif) "GIF saved to Pictures/Textura" else "Video saved to Movies/Textura", Toast.LENGTH_LONG).show()
+                    Toast.makeText(ctx, VideoExporter.note ?: (if (o.gif) "GIF saved to Pictures/Textura" else "Video saved to Movies/Textura"), Toast.LENGTH_LONG).show()
                     onDone()
                 }
                 VideoExporter.Result.NoSound -> {
@@ -207,9 +207,14 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
                     modifier = Modifier.padding(top = 6.dp),
                 )
             } else {
-                ChipRow(VideoSizes, VideoSizes.firstOrNull { it.first == o.longEdge } ?: VideoSizes[2], { it.second + " px" }) { s -> vm.updateVideo { it.copy(longEdge = s.first) } }
+                ChipRow(VideoSizes, VideoSizes.firstOrNull { it.first == o.longEdge } ?: VideoSizes[1], { it.second }) { s -> vm.updateVideo { it.copy(longEdge = s.first) } }
                 Spacer(Modifier.height(6.dp))
-                ChipRow(VideoFps, VideoFps.firstOrNull { it.first == o.fps } ?: VideoFps[0], { it.second }) { s -> vm.updateVideo { it.copy(fps = s.first) } }
+                ChipRow(VideoFps, VideoFps.firstOrNull { it.first == o.fps } ?: VideoFps[1], { it.second }) { s -> vm.updateVideo { it.copy(fps = s.first) } }
+                Text(
+                    "4K and 60 fps give the sharpest, smoothest result but take longer to create and make bigger files. If your phone can't encode that, Textura saves the closest size it can.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
             }
 
             if (!o.gif) {

@@ -29,7 +29,21 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /** Optional signature added at export time. [position]: 0 left, 1 centre, 2 right. */
-enum class RevealMode { Typewriter, Handwriting, Words, Lines, Sweep }
+enum class RevealMode { Typewriter, Handwriting, Words, Lines, Sweep, LineWipe, Pop, Scatter, Highlight, Fade }
+
+/** Which parts of the picture a draw call paints; lets video frames reuse the unchanging background. */
+enum class Stage { All, Below, Text, Above }
+
+class LayoutHolder {
+    var result: TextEngine.Result? = null
+    var content: RectF? = null
+}
+
+class TipHolder {
+    var valid = false
+    var x = 0f
+    var y = 0f
+}
 
 data class Watermark(val text: String, val position: Int = 1)
 
@@ -77,13 +91,18 @@ object Renderer {
         watermark: Watermark? = null,
         revealMode: RevealMode = RevealMode.Typewriter,
         pen: Boolean = false,
+        stage: Stage = Stage.All,
+        holder: LayoutHolder? = null,
     ) {
+        val doBelow = stage == Stage.All || stage == Stage.Below
+        val doText = stage == Stage.All || stage == Stage.Text
+        val doAbove = stage == Stage.All || stage == Stage.Above
         val (dw, dh) = designSize(shape)
         val appContext = context.applicationContext
         val tfOf: (String) -> Typeface = { id -> Fonts.typeface(appContext, id) }
         val hasSheet = look.paper != PaperType.None && !transparent
 
-        if (!transparent) BackgroundPainter.draw(canvas, look.bg, dw, dh, scale)
+        if (!transparent && doBelow) BackgroundPainter.draw(canvas, look.bg, dw, dh, scale)
 
         // ---- perspective for the whole composition
         canvas.save()
@@ -117,7 +136,7 @@ object Renderer {
             }
             val floating = inset > 0f || look.tilt != 0f
             corner = if (look.paper == PaperType.Glass) 40f else if (floating) 6f else 0f
-            if (floating) {
+            if (floating && doBelow) {
                 val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = if (look.paper == PaperType.Glass) Color.argb(60, 0, 0, 0) else look.paperColor or -0x1000000
                     setShadowLayer(dw * 0.022f, dw * 0.004f, dw * 0.012f, Color.argb(120, 0, 0, 0))
@@ -137,15 +156,16 @@ object Renderer {
         )
 
         val mask = if (look.textShape != TextShape.Rect) ShapeMask.get(look.textShape, content) else null
-        val result = TextEngine.layout(text.ifBlank { "Your text\nappears here" }, look, tfOf, content, shape, mask)
+        val result = holder?.result ?: TextEngine.layout(text.ifBlank { "Your text\nappears here" }, look, tfOf, content, shape, mask)
+            .also { holder?.result = it; holder?.content = content }
 
-        if (hasSheet) {
+        if (hasSheet && doBelow) {
             if (look.paper == PaperType.Glass) drawGlass(canvas, look, sheet, corner, dw, dh, scale)
             else PaperPainter.draw(canvas, look, sheet, result.baselines, result.pitch, scale)
             PaperPainter.drawEffects(canvas, look, sheet, scale)
         }
 
-        if (!transparent && look.shapeColor != null) {
+        if (!transparent && look.shapeColor != null && doBelow) {
             val fillPath = if (mask != null) ShapePaths.path(look.textShape, content) else {
                 val pad2 = dw * 0.03f
                 Path().apply {
@@ -156,18 +176,20 @@ object Renderer {
             canvas.drawPath(fillPath, fp)
         }
 
-        canvas.save()
-        canvas.translate(look.offsetX * dw, look.offsetY * dh)
-        drawText(canvas, look, tfOf, result, content, reveal, revealMode, pen)
-        canvas.restore()
+        if (doText) {
+            canvas.save()
+            canvas.translate(look.offsetX * dw, look.offsetY * dh)
+            drawText(canvas, look, tfOf, result, content, reveal, revealMode, pen, com.textura.app.render.Markup.strip(text))
+            canvas.restore()
+        }
 
         canvas.restore() // sheet
 
-        StickerPainter.draw(canvas, look.stickers, dw, dh, tfOf)
+        if (doAbove) StickerPainter.draw(canvas, look.stickers, dw, dh, tfOf)
         canvas.restore() // perspective
 
-        if (!transparent) LightPainter.draw(canvas, look.light, look.lightStrength, dw, dh)
-        if (watermark != null) WatermarkPainter.draw(canvas, watermark.text, watermark.position, dw, dh)
+        if (!transparent && doAbove) LightPainter.draw(canvas, look.light, look.lightStrength, dw, dh)
+        if (watermark != null && doAbove) WatermarkPainter.draw(canvas, watermark.text, watermark.position, dw, dh)
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -217,10 +239,12 @@ object Renderer {
         reveal: Float,
         mode: RevealMode,
         pen: Boolean,
+        plain: String,
     ) {
         val size = r.size
-        val revealed = if (reveal >= 0.999f) null else applyReveal(r.placed, reveal, mode, size, content)
+        val revealed = if (reveal >= 0.999f) null else applyReveal(r.placed, reveal, mode, size, content, plain)
         val placed = revealed?.placed ?: r.placed
+        val tipH = TipHolder()
 
         fun base(): TextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = tfOf(look.fontId)
@@ -264,7 +288,7 @@ object Renderer {
                     // typed ink bleed
                     f.setShadowLayer(max(0.6f, size * 0.012f), 0f, 0f, ColorUtils.setAlphaComponent(look.textColor, 110))
                 }
-                pass(canvas, placed, size, look, tfOf, f, 0f, 0f, wordColors = true, underline = true)
+                pass(canvas, placed, size, look, tfOf, f, 0f, 0f, wordColors = true, underline = true, tip = tipH)
             }
 
             Depth.Emboss, Depth.Engrave -> {
@@ -280,7 +304,7 @@ object Renderer {
                 }
                 pass(canvas, placed, size, look, tfOf, light, -d * sign, -d * sign)
                 pass(canvas, placed, size, look, tfOf, dark, d * sign, d * sign)
-                pass(canvas, placed, size, look, tfOf, face(), 0f, 0f, wordColors = true, underline = true)
+                pass(canvas, placed, size, look, tfOf, face(), 0f, 0f, wordColors = true, underline = true, tip = tipH)
             }
 
             Depth.Extrude -> {
@@ -306,7 +330,7 @@ object Renderer {
                     pass(canvas, placed, size, look, tfOf, side, ddx * t, ddy * t)
                 }
 
-                pass(canvas, placed, size, look, tfOf, face(), 0f, 0f, wordColors = true, underline = true)
+                pass(canvas, placed, size, look, tfOf, face(), 0f, 0f, wordColors = true, underline = true, tip = tipH)
 
                 if (look.highlight) {
                     val edge = base().apply {
@@ -320,8 +344,12 @@ object Renderer {
             }
         }
 
-        if (pen && revealed != null && revealed.hasTip) {
-            drawPenTip(canvas, look, mode, revealed, size, content)
+        if (pen && revealed != null) {
+            if (mode == RevealMode.Handwriting) {
+                if (tipH.valid) drawPenTip(canvas, look, mode, Revealed(placed, true, tipH.x, tipH.y, 0f), size, content)
+            } else if (revealed.hasTip) {
+                drawPenTip(canvas, look, mode, revealed, size, content)
+            }
         }
     }
 
@@ -341,12 +369,31 @@ object Renderer {
         mode: RevealMode,
         size: Float,
         content: RectF,
+        plain: String,
     ): Revealed {
         val f = fraction.coerceIn(0f, 1f)
+        val n = placed.size
+        // 0..1 progress of the item at [rank] when [n] items appear one after another, [len] of them at once
+        fun stag(rank: Int, count: Int, len: Float): Float = ((f * (count + len - 1f)) - rank) / len
+
+        // line index of every word (words on the same baseline share a line)
+        fun lineIndex(): IntArray {
+            val order = placed.indices.sortedBy { placed[it].y }
+            val lineOf = IntArray(n)
+            var line = 0
+            for ((k, i) in order.withIndex()) {
+                if (k > 0 && placed[i].y - placed[order[k - 1]].y > size * 0.45f) line++
+                lineOf[i] = line
+            }
+            return lineOf
+        }
+
         when (mode) {
             RevealMode.Typewriter -> {
-                val total = placed.sumOf { it.s.length }
-                var remaining = (total * f).roundToInt()
+                val schedule = Timing.typeSchedule(plain)
+                val totalPlaced = placed.sumOf { it.s.length }
+                var remaining = if (schedule.isEmpty()) (totalPlaced * f).roundToInt()
+                else (Timing.typedCount(schedule, f).toFloat() / schedule.size * totalPlaced).roundToInt()
                 val out = ArrayList<TextEngine.Placed>()
                 var tip: Revealed? = null
                 for (p in placed) {
@@ -362,19 +409,23 @@ object Renderer {
                 return tip ?: Revealed(out)
             }
             RevealMode.Handwriting -> {
-                val total = placed.sumOf { max(it.w, 1f).toDouble() }.toFloat()
-                val target = total * f
+                val weights = FloatArray(n)
+                val lead = FloatArray(n)
+                for (i in 0 until n) {
+                    if (i > 0 && abs(placed[i].y - placed[i - 1].y) > size * 0.5f) lead[i] = Timing.LINE_TRAVEL
+                    weights[i] = Timing.wordWeight(placed[i].s) + lead[i]
+                }
+                val target = weights.sum() * f
                 var acc = 0f
                 val out = ArrayList<TextEngine.Placed>()
-                for (p in placed) {
-                    val w = max(p.w, 1f)
+                for (i in 0 until n) {
+                    val w = weights[i]
                     if (acc + w <= target) {
-                        out.add(p)
+                        out.add(placed[i])
                     } else {
                         if (acc < target) {
-                            val c = (target - acc) / w
-                            out.add(p.copy(clip = c))
-                            return Revealed(out, true, p.x + p.w * c, p.y, p.rot)
+                            val hw = ((target - acc - lead[i]) / (w - lead[i])).coerceIn(0.0001f, 0.9999f)
+                            out.add(placed[i].copy(hw = hw))
                         }
                         break
                     }
@@ -382,36 +433,72 @@ object Renderer {
                 }
                 return Revealed(out)
             }
-            RevealMode.Words -> {
-                val n = placed.size
-                val pos = f * n
-                val k = pos.toInt()
-                val out = ArrayList<TextEngine.Placed>()
-                for (i in 0 until min(k, n)) out.add(placed[i])
-                if (k < n) {
-                    val part = (pos - k)
-                    if (part > 0.01f) out.add(placed[k].copy(alpha = placed[k].alpha * part))
+            RevealMode.Words, RevealMode.Pop, RevealMode.Scatter, RevealMode.Highlight -> {
+                val ranks = if (mode == RevealMode.Scatter) (0 until n).shuffled(kotlin.random.Random(5)) else (0 until n).toList()
+                val len = when (mode) { RevealMode.Words -> 3f; RevealMode.Pop -> 2.5f; RevealMode.Scatter -> 3.5f; else -> 1.6f }
+                val out = ArrayList<TextEngine.Placed>(n)
+                for (i in 0 until n) {
+                    val local = stag(ranks[i], n, len).coerceIn(0f, 1f)
+                    val p = placed[i]
+                    when (mode) {
+                        RevealMode.Words -> if (local > 0f) {
+                            val e = Timing.easeOutCubic(local)
+                            out.add(p.copy(alpha = p.alpha * e, rise = (1f - e) * size * 0.4f))
+                        }
+                        RevealMode.Pop -> if (local > 0f) {
+                            out.add(p.copy(alpha = p.alpha * min(1f, local * 4f), pop = max(0.02f, Timing.easeOutBack(local))))
+                        }
+                        RevealMode.Scatter -> if (local > 0f) {
+                            val e = Timing.easeOutCubic(local)
+                            out.add(p.copy(alpha = p.alpha * e, pop = 0.85f + 0.15f * e))
+                        }
+                        else -> { // Highlight: all words are visible but dim, then light up as they are read
+                            val e = Timing.easeOutCubic(local)
+                            out.add(p.copy(alpha = p.alpha * (0.22f + 0.78f * e)))
+                        }
+                    }
                 }
                 return Revealed(out)
             }
+            RevealMode.Fade -> {
+                val e = f * f * (3f - 2f * f)
+                return Revealed(placed.filter { e > 0.01f }.map { it.copy(alpha = it.alpha * e) })
+            }
             RevealMode.Lines -> {
-                val order = placed.sortedBy { it.y }
-                val lineOf = IntArray(order.size)
-                var line = 0
-                for (i in order.indices) {
-                    if (i > 0 && order[i].y - order[i - 1].y > size * 0.45f) line++
-                    lineOf[i] = line
-                }
-                val lines = line + 1
-                val pos = f * lines
-                val k = pos.toInt()
+                val lineOf = lineIndex()
+                val lines = (lineOf.maxOrNull() ?: 0) + 1
                 val out = ArrayList<TextEngine.Placed>()
-                for (i in order.indices) {
-                    val l = lineOf[i]
-                    if (l < k) out.add(order[i])
-                    else if (l == k && pos - k > 0.01f) out.add(order[i].copy(alpha = order[i].alpha * (pos - k)))
+                for (i in 0 until n) {
+                    val local = stag(lineOf[i], lines, 1.6f).coerceIn(0f, 1f)
+                    if (local <= 0f) continue
+                    val e = Timing.easeOutCubic(local)
+                    out.add(placed[i].copy(alpha = placed[i].alpha * e, rise = (1f - e) * size * 0.5f))
                 }
                 return Revealed(out)
+            }
+            RevealMode.LineWipe -> {
+                val lineOf = lineIndex()
+                val lines = (lineOf.maxOrNull() ?: 0) + 1
+                val pos = f * lines
+                val k = min(pos.toInt(), lines - 1)
+                val part = (pos - k).coerceIn(0f, 1f)
+                var left = Float.MAX_VALUE
+                var right = -Float.MAX_VALUE
+                var lineY = 0f
+                for (i in 0 until n) if (lineOf[i] == k) {
+                    left = min(left, placed[i].x); right = max(right, placed[i].x + placed[i].w); lineY = placed[i].y
+                }
+                val xLimit = left + part * (right - left)
+                val out = ArrayList<TextEngine.Placed>()
+                for (i in 0 until n) {
+                    val p = placed[i]
+                    if (lineOf[i] < k || (f >= 1f)) out.add(p)
+                    else if (lineOf[i] == k) {
+                        val c = ((xLimit - p.x) / max(p.w, 1f)).coerceIn(0f, 1f)
+                        if (c > 0f) out.add(if (c >= 1f) p else p.copy(clip = c))
+                    }
+                }
+                return if (left < right) Revealed(out, true, xLimit, lineY, 0f) else Revealed(out)
             }
             RevealMode.Sweep -> {
                 val clipX = content.left + f * content.width()
@@ -423,8 +510,79 @@ object Renderer {
                 return Revealed(out)
             }
         }
-        @Suppress("UNREACHABLE_CODE")
-        return Revealed(placed)
+    }
+
+    /**
+     * Draws a word that is being handwritten: finished letters normally, and the current letter revealed along its
+     * own centre line so the ink follows every stroke the way a pen would.
+     */
+    private fun drawWriting(canvas: Canvas, p: TextEngine.Placed, px: Float, py: Float, paint: TextPaint, fontKey: String, tip: TipHolder?) {
+        val s = p.s
+        val n = s.length
+        val sc = paint.textSize / 100f
+        val starts = ArrayList<Int>()
+        var i = 0
+        while (i < n) { starts.add(i); i += Character.charCount(s.codePointAt(i)) }
+        val ends = IntArray(starts.size) { if (it + 1 < starts.size) starts[it + 1] else n }
+        val skels = starts.indices.map { k ->
+            val ch = s.substring(starts[k], ends[k])
+            if (ch.isBlank()) null else GlyphStrokes.get(paint.typeface, fontKey, ch)
+        }
+        val gap = 14f
+        val weights = FloatArray(starts.size) { gap + (skels[it]?.total ?: 6f) }
+        val target = p.hw * weights.sum()
+
+        if (p.rot != 0f) { canvas.save(); canvas.rotate(p.rot, px, py) }
+        var acc = 0f
+        for (k in starts.indices) {
+            val x = if (starts[k] == 0) 0f else paint.getRunAdvance(s, 0, n, 0, n, false, starts[k])
+            val w = weights[k]
+            if (acc + w <= target) {
+                canvas.drawText(s, starts[k], ends[k], px + x, py, paint)
+                acc += w
+                continue
+            }
+            val local = target - acc
+            val sk = skels[k]
+            var tx = px + x
+            var ty = py
+            if (sk != null) {
+                val dist = max(0f, local - gap)
+                if (dist > 0f) {
+                    val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        style = Paint.Style.STROKE
+                        strokeWidth = sk.stem * 1.5f
+                        strokeCap = Paint.Cap.ROUND
+                        strokeJoin = Paint.Join.ROUND
+                    }
+                    val outline = Path()
+                    stroke.getFillPath(sk.pathUpTo(dist), outline)
+                    val m = Matrix()
+                    m.setScale(sc, sc)
+                    m.postTranslate(px + x, py)
+                    outline.transform(m)
+                    canvas.save()
+                    canvas.clipPath(outline)
+                    canvas.drawText(s, starts[k], ends[k], px + x, py, paint)
+                    canvas.restore()
+                }
+                val pt = sk.pointAt(dist)
+                tx = px + x + sc * pt.first
+                ty = py + sc * pt.second
+            }
+            if (tip != null) {
+                tip.valid = true
+                if (p.rot != 0f) {
+                    val rad = Math.toRadians(p.rot.toDouble())
+                    val dx = tx - px
+                    val dyy = ty - py
+                    tip.x = px + (dx * Math.cos(rad) - dyy * Math.sin(rad)).toFloat()
+                    tip.y = py + (dx * Math.sin(rad) + dyy * Math.cos(rad)).toFloat()
+                } else { tip.x = tx; tip.y = ty }
+            }
+            break
+        }
+        if (p.rot != 0f) canvas.restore()
     }
 
     private fun drawPenTip(canvas: Canvas, look: Look, mode: RevealMode, r: Revealed, size: Float, content: RectF) {
@@ -483,13 +641,14 @@ object Renderer {
         dy: Float,
         wordColors: Boolean = false,
         underline: Boolean = false,
+        tip: TipHolder? = null,
     ) {
         val shader0 = paint.shader
         val color0 = paint.color
         val under = Paint(Paint.ANTI_ALIAS_FLAG)
         for (p in placed) {
             val px = p.x + dx
-            val py = p.y + dy
+            val py = p.y + dy + p.rise
             paint.typeface = tfOf(p.st.fontId ?: look.fontId)
             paint.textSize = size * p.st.scale
             paint.isFakeBoldText = look.bold || p.st.bold
@@ -503,9 +662,14 @@ object Renderer {
                 paint.color = color0
             }
             paint.alpha = (Color.alpha(paint.color) * p.alpha).roundToInt().coerceIn(0, 255)
-            if (p.rot != 0f || p.clip < 1f) {
+            if (p.hw < 1f && p.s.isNotEmpty()) {
+                drawWriting(canvas, p, px, py, paint, p.st.fontId ?: look.fontId, tip)
+                continue
+            }
+            if (p.rot != 0f || p.clip < 1f || p.pop != 1f) {
                 canvas.save()
                 if (p.rot != 0f) canvas.rotate(p.rot, px, py)
+                if (p.pop != 1f) canvas.scale(p.pop, p.pop, px + p.w / 2f, py - size * 0.3f)
                 if (p.clip < 1f) {
                     val sc = size * p.st.scale
                     canvas.clipRect(px - sc * 0.4f, py - sc * 1.3f, px + p.w * p.clip, py + sc * 0.6f)
@@ -550,5 +714,51 @@ object Renderer {
         }
         bmp.recycle()
         return if (sum / max(1, n) > 0.45) 0xFF16161C.toInt() else Color.WHITE
+    }
+
+    /**
+     * A prepared picture for animation: the background, paper and layout are made once, so each frame only has to
+     * draw the text being revealed.
+     */
+    class Scene(
+        private val context: Context,
+        private val look: Look,
+        private val text: String,
+        private val shape: CanvasShape,
+        val w: Int,
+        val h: Int,
+        private val watermark: Watermark?,
+    ) {
+        private val holder = LayoutHolder()
+        private val dw: Float
+        private val dh: Float
+        private val scale: Float
+        private val below: Bitmap
+
+        init {
+            val d = designSize(shape)
+            dw = d.first; dh = d.second
+            scale = w / dw
+            below = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            val c = Canvas(below)
+            c.scale(w / dw, h / dh)
+            draw(c, context, look, text, shape, scale, false, 1f, watermark, RevealMode.Typewriter, false, Stage.Below, holder)
+        }
+
+        /** Draws the picture with [reveal] of the text shown. Pass [into] to reuse a bitmap of the same size. */
+        fun frame(reveal: Float, mode: RevealMode, pen: Boolean, into: Bitmap? = null): Bitmap {
+            val bmp = into ?: Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            val c = Canvas(bmp)
+            val over = Paint().apply { xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC) }
+            c.drawBitmap(below, 0f, 0f, over)
+            c.save()
+            c.scale(w / dw, h / dh)
+            draw(c, context, look, text, shape, scale, false, reveal, watermark, mode, pen && reveal < 1f, Stage.Text, holder)
+            draw(c, context, look, text, shape, scale, false, reveal, watermark, mode, false, Stage.Above, holder)
+            c.restore()
+            return bmp
+        }
+
+        fun release() { below.recycle() }
     }
 }

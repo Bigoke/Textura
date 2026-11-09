@@ -123,6 +123,12 @@ object TextEngine {
         val w: Float,
         /** 0..1: only this fraction of the word's width is drawn (left to right), used by video reveals. */
         val clip: Float = 1f,
+        /** Handwriting progress 0..1 (follows each stroke of each letter); 1 means fully written. */
+        val hw: Float = 1f,
+        /** Upward offset in px while a word is moving into place. */
+        val rise: Float = 0f,
+        /** Scale used by the pop animation. */
+        val pop: Float = 1f,
     )
 
     class Result(

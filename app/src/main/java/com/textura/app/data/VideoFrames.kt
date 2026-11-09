@@ -33,40 +33,33 @@ class VideoFrames(
 ) {
     val mode: RevealMode = resolveMode(look, opts.style)
     val introDur = if (opts.intro) opts.introSec else 0f
-    val writeDur = if (opts.seconds > 0f) opts.seconds else (Markup.strip(text).length / 22f).coerceIn(3f, 9f)
+    val writeDur = if (opts.seconds > 0f) opts.seconds else autoWrite(text, mode)
     val holdDur = opts.hold.coerceAtLeast(0f)
     val outroDur = if (opts.outro) opts.outroSec else 0f
     private val fadeOut = if (opts.loop) 0.5f else 0f
     val duration = introDur + writeDur + holdDur + outroDur + fadeOut
     val writeStart = introDur
 
-    private val size = width to height
     private val cached = ArrayList<Bitmap>()
     private var temp: Bitmap? = null
+    private var work: Bitmap? = null
 
-    private val blank: Bitmap by lazy { own(render("", 0f)) }
-    private val finalBmp: Bitmap by lazy { own(render(text, 1f)) }
-    private val introCard: Bitmap by lazy { own(render(cardText(opts.introText, "Title"), 1f)) }
-    private val outroCard: Bitmap by lazy {
-        own(render(cardText(opts.outroText.ifBlank { signature?.text ?: "" }, "The end"), 1f))
-    }
+    private val scene: Renderer.Scene by lazy { Renderer.Scene(context, look, text, shape, width, height, signature) }
+    private val blank: Bitmap by lazy { own(scene.frame(0f, mode, false)) }
+    private val finalBmp: Bitmap by lazy { own(scene.frame(1f, mode, false)) }
+    private val introCard: Bitmap by lazy { own(card(opts.introText.ifBlank { "Title" })) }
+    private val outroCard: Bitmap by lazy { own(card(opts.outroText.ifBlank { signature?.text ?: "" }.ifBlank { "The end" })) }
 
-    private fun cardText(t: String, fallback: String) = t.ifBlank { fallback }
+    private fun card(t: String): Bitmap =
+        Renderer.render(context, look, t, shape, width, false, 1f, signature, width to height, mode, false)
 
     private fun own(b: Bitmap): Bitmap { cached.add(b); return b }
-
-    private fun render(t: String, reveal: Float): Bitmap =
-        Renderer.render(
-            context, look, t, shape, width, false, reveal,
-            signature, size,
-            mode, opts.pen && reveal < 1f,
-        )
 
     /** The picture at time [t] seconds. Valid until the next call (or [release]). */
     fun frameAt(t: Float): Bitmap {
         val out = build(t.coerceIn(0f, duration))
-        if (!keep && temp != null && temp !== out && temp !in cached) temp?.recycle()
-        temp = if (out in cached) null else out
+        if (!keep && temp != null && temp !== out && temp !in cached && temp !== work) temp?.recycle()
+        temp = if (out in cached || out === work) null else out
         return out
     }
 
@@ -82,7 +75,10 @@ class VideoFrames(
         }
         if (x < writeDur) {
             val f = (x / writeDur).coerceIn(0f, 1f)
-            return if (f <= 0f && !opts.pen) blank else render(text, f)
+            if (f <= 0f && !opts.pen) return blank
+            if (keep) return scene.frame(f, mode, opts.pen)
+            val w = work ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { work = it }
+            return scene.frame(f, mode, opts.pen, w)
         }
         x -= writeDur
         if (x < holdDur) return finalBmp
@@ -111,20 +107,38 @@ class VideoFrames(
 
     fun release() {
         if (!keep) {
-            temp?.takeIf { it !in cached }?.recycle()
+            temp?.takeIf { it !in cached && it !== work }?.recycle()
+            work?.recycle()
             cached.forEach { runCatching { it.recycle() } }
+            runCatching { scene.release() }
         }
+        work = null
         temp = null
         cached.clear()
     }
 
     companion object {
+        /** Natural writing time when the user leaves it on Auto. */
+        fun autoWrite(text: String, mode: RevealMode): Float {
+            val n = Markup.strip(text).length.toFloat()
+            return when (mode) {
+                RevealMode.Handwriting -> (n / 12f).coerceIn(3.5f, 18f)
+                RevealMode.Typewriter -> (n / 18f).coerceIn(3f, 14f)
+                else -> (n / 24f).coerceIn(2.5f, 8f)
+            }
+        }
+
         fun resolveMode(look: Look, style: VideoStyle): RevealMode = when (style) {
             VideoStyle.Typewriter -> RevealMode.Typewriter
             VideoStyle.Handwriting -> RevealMode.Handwriting
             VideoStyle.Words -> RevealMode.Words
             VideoStyle.Lines -> RevealMode.Lines
             VideoStyle.Sweep -> RevealMode.Sweep
+            VideoStyle.LineWipe -> RevealMode.LineWipe
+            VideoStyle.Pop -> RevealMode.Pop
+            VideoStyle.Scatter -> RevealMode.Scatter
+            VideoStyle.Highlight -> RevealMode.Highlight
+            VideoStyle.Fade -> RevealMode.Fade
             VideoStyle.Auto -> when {
                 look.handwritten -> RevealMode.Handwriting
                 Fonts.byId(look.fontId).group == FontGroup.Typed -> RevealMode.Typewriter

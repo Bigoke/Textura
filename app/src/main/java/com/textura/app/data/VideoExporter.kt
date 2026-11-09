@@ -3,6 +3,7 @@ package com.textura.app.data
 import android.content.ContentValues
 import android.content.Context
 import android.media.MediaCodec
+import android.media.MediaCodecList
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
@@ -22,6 +23,35 @@ import kotlin.math.roundToInt
 /** Records the text being written as an MP4 (with optional sound) or an animated GIF. */
 object VideoExporter {
     enum class Result { Ok, Failed, NoSound }
+
+    /** Set after an export when the phone could not do exactly what was asked (smaller size or fewer frames per second). */
+    @Volatile var note: String? = null
+
+    private class Plan(val mime: String, val codecName: String, val w: Int, val h: Int, val fps: Int)
+
+    /** Finds an encoder that can really do this size and frame rate, stepping down only as far as needed. */
+    private fun plan(shape: CanvasShape, longEdge: Int, fps: Int): Plan? {
+        val infos = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
+            .filter { it.isEncoder }
+            .sortedByDescending { it.isHardwareAccelerated }
+        val hevc = MediaFormat.MIMETYPE_VIDEO_HEVC
+        val avc = MediaFormat.MIMETYPE_VIDEO_AVC
+        val mimes = if (longEdge > 1920 || fps > 30) listOf(hevc, avc) else listOf(avc, hevc)
+        val fpsSteps = listOf(fps, 30, 24).distinct().filter { it <= fps }
+        var edge = longEdge
+        while (edge >= 480) {
+            val (w, h) = dims(shape, edge, 16)
+            for (fp in fpsSteps) for (mime in mimes) for (info in infos) {
+                if (mime !in info.supportedTypes) continue
+                val caps = runCatching { info.getCapabilitiesForType(mime).videoCapabilities }.getOrNull() ?: continue
+                if (caps.isSizeSupported(w, h) && caps.areSizeAndRateSupported(w, h, fp.toDouble())) {
+                    return Plan(mime, info.name, w, h, fp)
+                }
+            }
+            edge = (edge * 0.85f).toInt()
+        }
+        return null
+    }
 
     private class Sample(val data: ByteArray, val pts: Long, val flags: Int)
     private class EncodedAudio(val format: MediaFormat, val samples: List<Sample>)
@@ -112,8 +142,15 @@ object VideoExporter {
         context: Context, look: Look, text: String, shape: CanvasShape, opts: VideoOptions, signature: Watermark?,
         onProgress: (Int, Int) -> Unit, cancelled: () -> Boolean,
     ): Result {
-        val (w, h) = dims(shape, min(opts.longEdge, 1440), 16)
-        val fps = opts.fps.coerceIn(10, 30)
+        note = null
+        val plan = plan(shape, opts.longEdge, opts.fps.coerceIn(10, 60)) ?: return Result.Failed
+        val w = plan.w
+        val h = plan.h
+        val fps = plan.fps
+        val asked = dims(shape, opts.longEdge, 16)
+        if (asked.first != w || asked.second != h || fps != opts.fps) {
+            note = "Saved at $w × $h, $fps fps, the most this phone can encode."
+        }
         val frames = VideoFrames(context, look, text, shape, opts, w, h, signature)
         val total = max(1, ceil(frames.duration * fps).toInt())
 
@@ -144,13 +181,14 @@ object VideoExporter {
         try {
             val pfd = resolver.openFileDescriptor(uri, "w") ?: return Result.Failed
             pfd.use {
-                val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, w, h).apply {
+                val bpp = if (plan.mime == MediaFormat.MIMETYPE_VIDEO_HEVC) 0.06f else 0.10f
+                val format = MediaFormat.createVideoFormat(plan.mime, w, h).apply {
                     setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
-                    setInteger(MediaFormat.KEY_BIT_RATE, (w * h * fps / 6).coerceIn(1_500_000, 14_000_000))
+                    setInteger(MediaFormat.KEY_BIT_RATE, (w.toLong() * h * fps * bpp).toLong().coerceIn(2_000_000L, 90_000_000L).toInt())
                     setInteger(MediaFormat.KEY_FRAME_RATE, fps)
                     setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
                 }
-                val c = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+                val c = MediaCodec.createByCodecName(plan.codecName)
                 codec = c
                 c.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
                 c.start()
@@ -192,12 +230,10 @@ object VideoExporter {
                     }
                 }
 
-                val pixels = IntArray(w * h)
                 for (f in 0 until total) {
                     if (cancelled()) return Result.Failed
                     onProgress(f, total)
                     val bmp = frames.frameAt(min(frames.duration, f / fps.toFloat()))
-                    bmp.getPixels(pixels, 0, w, 0, 0, w, h)
 
                     var inIdx = c.dequeueInputBuffer(10_000L)
                     while (inIdx < 0) {
@@ -206,7 +242,7 @@ object VideoExporter {
                         inIdx = c.dequeueInputBuffer(10_000L)
                     }
                     val image = c.getInputImage(inIdx) ?: return Result.Failed
-                    fillYuv(image, pixels, w, h)
+                    fillYuv(image, bmp, w, h)
                     c.queueInputBuffer(inIdx, 0, w * h * 3 / 2, f * 1_000_000L / fps, 0)
                     drain(false)
                 }
@@ -294,29 +330,36 @@ object VideoExporter {
         return if (samples.isEmpty()) null else EncodedAudio(f, samples)
     }
 
-    private fun fillYuv(image: android.media.Image, px: IntArray, w: Int, h: Int) {
+    private fun fillYuv(image: android.media.Image, bmp: android.graphics.Bitmap, w: Int, h: Int) {
         val yP = image.planes[0]
         val uP = image.planes[1]
         val vP = image.planes[2]
         val yb = yP.buffer
         val ub = uP.buffer
         val vb = vP.buffer
-        for (y in 0 until h) {
-            val row = y * w
-            for (x in 0 until w) {
-                val p = px[row + x]
-                val r = (p shr 16) and 0xFF
-                val g = (p shr 8) and 0xFF
-                val b = p and 0xFF
-                val yy = ((66 * r + 129 * g + 25 * b + 128) shr 8) + 16
-                yb.put(y * yP.rowStride + x * yP.pixelStride, yy.coerceIn(0, 255).toByte())
-                if ((y and 1) == 0 && (x and 1) == 0) {
-                    val u = ((-38 * r - 74 * g + 112 * b + 128) shr 8) + 128
-                    val v = ((112 * r - 94 * g - 18 * b + 128) shr 8) + 128
-                    val ci = (y / 2) * uP.rowStride + (x / 2) * uP.pixelStride
-                    val cj = (y / 2) * vP.rowStride + (x / 2) * vP.pixelStride
-                    ub.put(ci, u.coerceIn(0, 255).toByte())
-                    vb.put(cj, v.coerceIn(0, 255).toByte())
+        val band = 64
+        val bands = (h + band - 1) / band
+        java.util.stream.IntStream.range(0, bands).parallel().forEach { bi ->
+            val y0 = bi * band
+            val rows = min(band, h - y0)
+            val px = IntArray(w * rows)
+            bmp.getPixels(px, 0, w, 0, y0, w, rows)
+            for (r in 0 until rows) {
+                val y = y0 + r
+                val row = r * w
+                for (x in 0 until w) {
+                    val p = px[row + x]
+                    val rr = (p shr 16) and 0xFF
+                    val g = (p shr 8) and 0xFF
+                    val b = p and 0xFF
+                    val yy = ((66 * rr + 129 * g + 25 * b + 128) shr 8) + 16
+                    yb.put(y * yP.rowStride + x * yP.pixelStride, yy.coerceIn(0, 255).toByte())
+                    if ((y and 1) == 0 && (x and 1) == 0) {
+                        val u = ((-38 * rr - 74 * g + 112 * b + 128) shr 8) + 128
+                        val v = ((112 * rr - 94 * g - 18 * b + 128) shr 8) + 128
+                        ub.put((y / 2) * uP.rowStride + (x / 2) * uP.pixelStride, u.coerceIn(0, 255).toByte())
+                        vb.put((y / 2) * vP.rowStride + (x / 2) * vP.pixelStride, v.coerceIn(0, 255).toByte())
+                    }
                 }
             }
         }

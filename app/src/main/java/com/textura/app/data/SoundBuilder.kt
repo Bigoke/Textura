@@ -5,6 +5,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import com.textura.app.render.Markup
 import com.textura.app.render.RevealMode
+import com.textura.app.render.Timing
 import java.io.File
 import kotlin.math.PI
 import kotlin.math.abs
@@ -35,7 +36,7 @@ object SoundBuilder {
             FxSound.Paper -> FxSound.Paper
             FxSound.Auto -> when (mode) {
                 RevealMode.Typewriter -> FxSound.Keys
-                RevealMode.Handwriting -> FxSound.Pen
+                RevealMode.Handwriting, RevealMode.LineWipe -> FxSound.Pen
                 else -> FxSound.Paper
             }
         }
@@ -122,52 +123,81 @@ object SoundBuilder {
     }
 
     private fun keys(buf: FloatArray, text: String, start: Float, dur: Float, rnd: Random) {
-        val chars = text.count { !it.isWhitespace() }.coerceAtLeast(1)
-        var seen = 0
+        // the very same rhythm the typing animation uses
+        val schedule = Timing.typeSchedule(text)
+        if (schedule.isEmpty()) return
         val bellSample = bell()
+        // faster typing sounds a little lighter and tighter, slower typing heavier
+        val cps = schedule.size / max(0.5f, dur)
+        val heavy = (1.15f - cps / 25f).coerceIn(0.6f, 1.1f)
+        var seen = 0
+        var newlineBefore = false
         for (ch in text) {
-            if (ch == '\n') {
-                add(buf, ((start + dur * seen / chars) * RATE).toInt(), bellSample, 0.5f)
-                continue
-            }
+            if (ch == '\n') { newlineBefore = true; continue }
             if (ch.isWhitespace()) continue
-            val t = start + dur * seen / chars
-            val c = click(rnd, 0.5f + rnd.nextFloat() * 0.25f, 110f + rnd.nextFloat() * 50f)
-            add(buf, (t * RATE).toInt(), c, 0.55f + rnd.nextFloat() * 0.3f)
+            val t = start + dur * schedule[seen]
+            if (newlineBefore) {
+                // carriage return: bell just before the first key of the new line
+                add(buf, (max(0f, t - 0.25f) * RATE).toInt(), bellSample, 0.45f)
+                newlineBefore = false
+            }
+            val c = click(rnd, (0.5f + rnd.nextFloat() * 0.25f) * heavy, 105f + rnd.nextFloat() * 55f)
+            add(buf, (t * RATE).toInt(), c, (0.5f + rnd.nextFloat() * 0.3f) * heavy)
             seen++
+            if (seen >= schedule.size) break
         }
     }
 
+    /** Pen on paper: a short scratch for every letter, so the sound follows how fast the text is written. */
     private fun pen(buf: FloatArray, text: String, start: Float, dur: Float, rnd: Random, mode: RevealMode) {
-        val words = Regex("\\S+").findAll(text).map { it.value.length }.toList()
+        data class W(val len: Int, val weight: Float, val lead: Float)
+        val words = ArrayList<W>()
+        var pos = 0
+        val tokens = Regex("\\S+").findAll(text).toList()
+        for ((i, m) in tokens.withIndex()) {
+            val brk = i > 0 && text.substring(tokens[i - 1].range.last + 1, m.range.first).contains('\n')
+            val lead = if (brk) Timing.LINE_TRAVEL else 0f
+            words.add(W(m.value.length, Timing.wordWeight(m.value) + lead, lead))
+            pos++
+        }
         if (words.isEmpty()) return
-        val weights = words.map { it + 0.5f }
-        val sum = weights.sum()
+        val total = words.sumOf { it.weight.toDouble() }.toFloat()
         var t = start
-        var prev = 0f
+        var prevN = 0f
         var lp = 0f
-        for ((wi, wl) in words.withIndex()) {
-            val d = dur * weights[wi] / sum
-            val a = (t * RATE).toInt()
-            val b = ((t + d * 0.88f) * RATE).toInt()
-            val wob = 5f + rnd.nextFloat() * 4f
-            val ph = rnd.nextFloat() * 6f
-            for (i in a until min(b, buf.size)) {
-                val u = (i - a) / max(1, b - a).toFloat()
-                val hump = sin(PI * u).toFloat().pow(0.6f)
-                val stroke = 0.45f + 0.55f * abs(sin(2.0 * PI * wob * (i - a) / RATE + ph)).toFloat()
-                val noise = rnd.nextFloat() * 2f - 1f
-                lp += (noise - lp) * 0.55f
-                val hp = lp - prev * 0.8f
-                prev = lp
-                buf[i] += hp * hump * stroke * 0.30f * min(1f, 0.5f + wl / 6f)
+        for ((wi, w) in words.withIndex()) {
+            val d = dur * w.weight / total
+            val tw = d * (1f - w.lead / w.weight)            // time actually writing (pen on paper)
+            val t0 = t + (d - tw)
+            val speed = w.len / max(0.05f, tw)                // letters per second
+            val level = (0.16f + 0.14f * (speed / 10f).coerceIn(0f, 1f))
+            val bright = (0.35f + 0.35f * (speed / 10f).coerceIn(0f, 1f))
+            // one scratch per letter, with the pen lifting slightly between letters
+            val letters = max(1, w.len)
+            for (L in 0 until letters) {
+                val a0 = t0 + tw * L / letters
+                val a1 = t0 + tw * (L + 0.86f) / letters
+                val a = (a0 * RATE).toInt()
+                val b = (a1 * RATE).toInt()
+                val wob = 3f + speed * 0.9f + rnd.nextFloat() * 3f
+                val ph = rnd.nextFloat() * 6f
+                for (i in a until min(b, buf.size)) {
+                    val u = (i - a) / max(1, b - a).toFloat()
+                    val hump = sin(PI * u).toFloat().pow(0.7f)
+                    val stroke = 0.5f + 0.5f * abs(sin(2.0 * PI * wob * (i - a) / RATE + ph)).toFloat()
+                    val noise = rnd.nextFloat() * 2f - 1f
+                    lp += (noise - lp) * bright
+                    val hp = lp - prevN * 0.8f
+                    prevN = lp
+                    buf[i] += hp * hump * stroke * level
+                }
             }
             t += d
         }
     }
 
     private fun rustle(buf: FloatArray, text: String, start: Float, dur: Float, rnd: Random, mode: RevealMode) {
-        if (mode == RevealMode.Sweep) {
+        if (mode == RevealMode.Sweep || mode == RevealMode.Fade) {
             var lp = 0f
             val a = (start * RATE).toInt()
             val b = ((start + dur) * RATE).toInt()
@@ -178,19 +208,22 @@ object SoundBuilder {
             }
             return
         }
-        val units = if (mode == RevealMode.Lines) text.lines().filter { it.isNotBlank() }.size
-        else Regex("\\S+").findAll(text).count()
+        val perLine = mode == RevealMode.Lines
+        val units = if (perLine) text.lines().filter { it.isNotBlank() }.size else Regex("\\S+").findAll(text).count()
         if (units == 0) return
+        // each unit gets a rustle as long as its share of the time, so longer videos sound slower and softer
+        val slot = dur / units
         for (k in 0 until units) {
             val t = start + dur * k / units
-            val len = (0.09f * RATE).toInt()
+            val len = (min(0.16f, max(0.04f, slot * 0.9f)) * RATE).toInt()
             var lp = 0f
+            val soft = (0.5f + 0.5f * (slot / 0.25f).coerceIn(0f, 1f))
             val s = FloatArray(len) { i ->
                 val u = i / len.toFloat()
                 lp += ((rnd.nextFloat() * 2f - 1f) - lp) * 0.2f
                 lp * sin(PI * u).toFloat() * 0.6f
             }
-            add(buf, (t * RATE).toInt(), s, 0.8f)
+            add(buf, (t * RATE).toInt(), s, 0.8f * soft)
         }
     }
 

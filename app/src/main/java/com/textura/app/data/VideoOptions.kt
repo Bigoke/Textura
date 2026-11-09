@@ -1,7 +1,8 @@
 package com.textura.app.data
 
 enum class VideoStyle(val label: String) {
-    Auto("Auto"), Typewriter("Typewriter"), Handwriting("Handwriting"), Words("Word by word"), Lines("Line by line"), Sweep("Sweep"),
+    Auto("Auto"), Handwriting("Handwriting"), Typewriter("Typewriter"), Words("Words rise"), Pop("Pop"), Scatter("Scatter"),
+    Lines("Lines slide"), LineWipe("Line wipe"), Sweep("Sweep"), Highlight("Highlight"), Fade("Fade in"),
 }
 
 enum class FxSound(val label: String) { Auto("Auto"), Keys("Typewriter keys"), Pen("Pen on paper"), Paper("Paper rustle"), Off("Off") }
@@ -21,7 +22,7 @@ data class VideoOptions(
     val outroText: String = "",
     val outroSec: Float = 2f,
     val loop: Boolean = false,
-    val fps: Int = 24,
+    val fps: Int = 30,
     val longEdge: Int = 1280,
     val fx: FxSound = FxSound.Auto,
     val fxVolume: Float = 0.8f,
