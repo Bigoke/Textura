@@ -22,7 +22,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee build.log
+
+      - name: Save build log to the buildlog branch
+        if: always()
+        run: |
+          mkdir -p /tmp/bl && cp build.log /tmp/bl/build.log 2>/dev/null || echo "no log" > /tmp/bl/build.log
+          cd /tmp/bl && git init -q -b buildlog
+          git config user.name "build-bot" && git config user.email "bot@users.noreply.github.com"
+          git add build.log && git commit -q -m "build log ${GITHUB_SHA}"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" buildlog
 
       - uses: actions/upload-artifact@v4
         with:
