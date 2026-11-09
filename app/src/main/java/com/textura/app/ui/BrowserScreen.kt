@@ -3,6 +3,8 @@ package com.textura.app.ui
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -83,6 +85,7 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
 
     val looks = vm.looks
     val current = looks.getOrNull(pager.currentPage) ?: looks.first()
+    val accent by animateColorAsState(accentOf(current, MaterialTheme.colorScheme.primary), label = "accent")
 
     LaunchedEffect(vm.browserIndex) {
         if (pager.currentPage != vm.browserIndex && vm.browserIndex in 0 until pager.pageCount) {
@@ -139,6 +142,7 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
                         }
                     },
                     label = { Text(cat.label) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent.copy(alpha = 0.30f)),
                 )
             }
         }
@@ -234,7 +238,7 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
 
         // ---- dots and hint
         Column(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            PagerDots(count = looks.size, current = pager.currentPage)
+            PagerDots(count = looks.size, current = pager.currentPage, accent = accent)
             Text(
                 "Swipe to change look · double-tap for grid",
                 style = MaterialTheme.typography.labelSmall,
@@ -287,7 +291,7 @@ private fun ActionItem(icon: ImageVector, label: String, tint: Color = MaterialT
 }
 
 @Composable
-private fun PagerDots(count: Int, current: Int) {
+private fun PagerDots(count: Int, current: Int, accent: Color) {
     val window = 7
     val start = (current - window / 2).coerceIn(0, max(0, count - window))
     val end = min(count, start + window)
@@ -303,7 +307,7 @@ private fun PagerDots(count: Int, current: Int) {
                 Modifier
                     .size(size)
                     .clip(CircleShape)
-                    .background(if (d == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
+                    .background(if (d == 0) accent else MaterialTheme.colorScheme.outline),
             )
         }
     }

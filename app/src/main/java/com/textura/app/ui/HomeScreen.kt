@@ -46,13 +46,15 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.unit.dp
 import com.textura.app.data.HistoryItem
 import com.textura.app.model.CanvasShape
+import com.textura.app.render.Markup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
 fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryItem) -> Unit) {
     val clipboard = LocalClipboardManager.current
-    val words = vm.text.trim().split(Regex("\\s+")).count { it.isNotEmpty() }
+    val plain = Markup.strip(vm.text)
+    val words = plain.trim().split(Regex("\\s+")).count { it.isNotEmpty() }
 
     Box(Modifier.fillMaxSize()) {
         Column(
@@ -78,6 +80,7 @@ fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryIt
                 maxLines = 12,
                 shape = RoundedCornerShape(24.dp),
                 placeholder = { Text("Paste or type your text…") },
+                visualTransformation = TagDimTransformation(MaterialTheme.colorScheme.outline),
             )
             Row(
                 Modifier
@@ -87,7 +90,7 @@ fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryIt
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    "${vm.text.length} characters · $words words",
+                    "${plain.length} characters · $words words",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -113,11 +116,7 @@ fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryIt
             }
 
             SectionTitle("Shape")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                CanvasShape.entries.forEach { s ->
-                    ShapeGlyph(s, s == vm.shape) { vm.updateShape(s) }
-                }
-            }
+            ShapePicker(vm.shape) { vm.updateShape(it) }
 
             if (vm.history.isNotEmpty()) {
                 SectionTitle("Recent designs")

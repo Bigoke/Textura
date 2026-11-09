@@ -15,7 +15,12 @@ import com.textura.app.data.ImageFormat
 import com.textura.app.data.Settings
 import com.textura.app.data.Store
 import com.textura.app.model.CanvasShape
+import com.textura.app.model.Align
 import com.textura.app.model.Catalogue
+import com.textura.app.model.Category
+import com.textura.app.model.Depth
+import com.textura.app.model.TextShape
+import com.textura.app.render.Markup
 import com.textura.app.model.Look
 import com.textura.app.render.Renderer
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +35,7 @@ object Samples {
         "Some days you carry the whole sky.\nOther days the sky carries you.\nEither way, keep walking.",
         "Dear future me,\nI hope you finally learned to rest without guilt, to say no without explaining, and to keep the small joys close.\nYours, today.",
         "Good design is invisible until it is missing. Make the words fill the page, let the shape decide the rhythm, and choose the one look that feels like you.",
+        "[huge]Dear[/huge] [c=#E8604C]future[/c] [i]me[/i],\nbe [b]kind[/b] to yourself today.\n[small]Select words and use the Format buttons to style them.[/small]",
     )
 }
 
@@ -54,7 +60,40 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var working by mutableStateOf<Look?>(null); private set
     var browserIndex by mutableIntStateOf(0)
 
-    val looks: List<Look> get() = listOfNotNull(working) + Catalogue.all + custom
+    private var orderKey: String? = null
+    private var orderCache: List<Look> = Catalogue.all
+
+    /** Looks sorted so the ones that suit the current text come first (when smart order is on). */
+    private fun orderedCatalogue(): List<Look> {
+        if (!settings.smartOrder) return Catalogue.all
+        val key = text.hashCode().toString()
+        if (key != orderKey) {
+            orderKey = key
+            orderCache = Catalogue.all.sortedByDescending { suitability(it) }
+        }
+        return orderCache
+    }
+
+    private fun suitability(l: Look): Int {
+        val len = Markup.strip(text).length
+        val lines = text.count { it == '\n' } + 1
+        var s = 0
+        val short = len < 90
+        val long = len > 420
+        when (l.category) {
+            Category.Art, Category.ThreeD, Category.Shapes -> s += if (short) 3 else if (len < 220) 1 else -2
+            Category.Typed -> s += if (long) 3 else if (len > 220) 1 else 0
+            Category.Paper -> if (len in 120..500) s += 2
+            Category.Handwritten -> if (len < 350) s += 2
+        }
+        if (long && l.fontId in setOf("anton", "bungee", "monoton", "abril_fatface", "unifraktur", "bebas_neue")) s -= 3
+        if (l.textShape != TextShape.Rect) s += if (len > 300) -4 else if (len < 200) 1 else 0
+        if (l.depth == Depth.Extrude && len > 200) s -= 2
+        if (lines >= 4 && l.align == Align.Center) s += 1
+        return s
+    }
+
+    val looks: List<Look> get() = listOfNotNull(working) + orderedCatalogue() + custom
 
     // ---------------------------------------------------------------- text & shape
     fun updateText(value: String) {

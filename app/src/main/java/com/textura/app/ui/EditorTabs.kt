@@ -7,8 +7,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,18 +19,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Remove
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -40,39 +49,70 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.ColorUtils
 import com.textura.app.model.Align
+import com.textura.app.model.AppFont
 import com.textura.app.model.Background
 import com.textura.app.model.BgKind
-import com.textura.app.model.CanvasShape
 import com.textura.app.model.Depth
-import com.textura.app.model.AppFont
+import com.textura.app.model.FoilType
 import com.textura.app.model.FontGroup
 import com.textura.app.model.Fonts
 import com.textura.app.model.GradientType
+import com.textura.app.model.LightType
 import com.textura.app.model.Look
 import com.textura.app.model.PaperType
+import com.textura.app.model.Sticker
+import com.textura.app.model.StickerType
+import com.textura.app.model.TextShape
 import com.textura.app.model.c
 import com.textura.app.model.ca
+import com.textura.app.render.Markup
+import com.textura.app.render.Renderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import java.util.UUID
 
 // ------------------------------------------------------------------------------------------------
 // TEXT
 // ------------------------------------------------------------------------------------------------
 @Composable
 fun TextTab(vm: AppViewModel, look: Look) {
+    val ctx = LocalContext.current
+    var tfv by remember { mutableStateOf(TextFieldValue(vm.text)) }
+    LaunchedEffect(vm.text) {
+        if (tfv.text != vm.text) tfv = TextFieldValue(vm.text)
+    }
+    var colorDialog by remember { mutableStateOf(false) }
+    var fontMenu by remember { mutableStateOf(false) }
+
+    fun wrapSelection(open: String, close: String) {
+        val sel = tfv.selection
+        if (sel.collapsed) {
+            Toast.makeText(ctx, "Select some words in the text box first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val t = tfv.text
+        val s = sel.min
+        val e = sel.max
+        val next = t.substring(0, s) + open + t.substring(s, e) + close + t.substring(e)
+        tfv = TextFieldValue(next, TextRange(s + open.length, e + open.length))
+        vm.updateText(next)
+    }
+
     OutlinedTextField(
-        value = vm.text,
-        onValueChange = vm::updateText,
+        value = tfv,
+        onValueChange = {
+            tfv = it
+            vm.updateText(it.text)
+        },
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 4.dp),
@@ -80,12 +120,53 @@ fun TextTab(vm: AppViewModel, look: Look) {
         maxLines = 5,
         label = { Text("Your text") },
         shape = RoundedCornerShape(16.dp),
+        visualTransformation = TagDimTransformation(MaterialTheme.colorScheme.outline),
     )
+
+    SectionTitle("Format selected words")
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        AssistChip(onClick = { wrapSelection("[b]", "[/b]") }, label = { Text("Bold") })
+        AssistChip(onClick = { wrapSelection("[i]", "[/i]") }, label = { Text("Italic") })
+        AssistChip(onClick = { wrapSelection("[u]", "[/u]") }, label = { Text("Underline") })
+        AssistChip(onClick = { wrapSelection("[big]", "[/big]") }, label = { Text("Big") })
+        AssistChip(onClick = { wrapSelection("[huge]", "[/huge]") }, label = { Text("Huge") })
+        AssistChip(onClick = { wrapSelection("[small]", "[/small]") }, label = { Text("Small") })
+        AssistChip(onClick = { colorDialog = true }, label = { Text("Colour") })
+        AssistChip(onClick = { fontMenu = true }, label = { Text("Font") })
+        AssistChip(onClick = {
+            val cleaned = Markup.strip(tfv.text)
+            tfv = TextFieldValue(cleaned)
+            vm.updateText(cleaned)
+        }, label = { Text("Clear formatting") })
+    }
+    DropdownMenu(expanded = fontMenu, onDismissRequest = { fontMenu = false }) {
+        Fonts.all.forEach { f ->
+            DropdownMenuItem(
+                text = { Text(f.label) },
+                onClick = {
+                    fontMenu = false
+                    wrapSelection("[font=${f.id}]", "[/font]")
+                },
+            )
+        }
+    }
+    if (colorDialog) {
+        ColorDialog(look.textColor, false, { colorDialog = false }) { picked ->
+            wrapSelection("[c=" + String.format(Locale.US, "#%06X", picked and 0xFFFFFF) + "]", "[/c]")
+        }
+    }
+
     SectionTitle("Style")
     SwitchRow("UPPERCASE", look.uppercase) { on -> vm.edit { it.copy(uppercase = on) } }
     SwitchRow("Bold", look.bold) { on -> vm.edit { it.copy(bold = on) } }
+
     SectionTitle("Colour")
-    ColorField("Text colour", look.textColor, withAlpha = true) { col -> vm.edit { it.copy(textColor = col) } }
+    ColorField("Text colour", look.textColor, withAlpha = true) { col -> vm.edit { it.copy(textColor = col, foil = FoilType.None) } }
     SwitchRow("Gradient fill", look.textColor2 != null) { on ->
         vm.edit { l ->
             l.copy(textColor2 = if (on) (l.textColor2 ?: ColorUtils.blendARGB(l.textColor, android.graphics.Color.BLACK, 0.45f)) else null)
@@ -94,6 +175,13 @@ fun TextTab(vm: AppViewModel, look: Look) {
     look.textColor2?.let { second ->
         ColorField("Gradient end colour", second) { col -> vm.edit { it.copy(textColor2 = col) } }
     }
+    OutlinedButton(
+        onClick = { vm.edit { it.copy(textColor = Renderer.autoTextColor(ctx, it, vm.shape), foil = FoilType.None) } },
+        modifier = Modifier.padding(top = 6.dp),
+    ) { Text("Auto contrast (readable on this background)") }
+
+    SectionTitle("Foil finish")
+    ChipRow(FoilType.entries, look.foil, { it.label }) { f -> vm.edit { it.copy(foil = f) } }
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -102,7 +190,8 @@ fun TextTab(vm: AppViewModel, look: Look) {
 @Composable
 fun FontTab(vm: AppViewModel, look: Look) {
     var group by remember { mutableStateOf<FontGroup?>(null) }
-    ChipRow(listOf<FontGroup?>(null) + FontGroup.entries, group, { it?.label ?: "All" }) { group = it }
+    val groups = FontGroup.entries.filter { g -> Fonts.all.any { it.group == g } }
+    ChipRow(listOf<FontGroup?>(null) + groups, group, { it?.label ?: "All" }) { group = it }
     val fonts = Fonts.all.filter { group == null || it.group == group }
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -124,7 +213,7 @@ fun FontTab(vm: AppViewModel, look: Look) {
 @Composable
 private fun FontCard(font: AppFont, selected: Boolean, onClick: () -> Unit) {
     val ctx = LocalContext.current
-    val family = remember(font.id) { FontFamily(Font(font.assetPath, ctx.assets)) }
+    val family = remember(font.id, font.filePath) { Fonts.composeFamily(ctx, font) }
     val border = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
     Column(
         Modifier
@@ -310,10 +399,21 @@ fun DepthTab(vm: AppViewModel, look: Look) {
 // ------------------------------------------------------------------------------------------------
 @Composable
 fun LayoutTab(vm: AppViewModel, look: Look) {
-    SectionTitle("Shape (text always fills it)")
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        CanvasShape.entries.forEach { s -> ShapeGlyph(s, s == vm.shape) { vm.updateShape(s) } }
+    SectionTitle("Canvas size")
+    ShapePicker(vm.shape) { vm.updateShape(it) }
+
+    SectionTitle("Text shape (the text fills it)")
+    ChipRow(TextShape.entries, look.textShape, { it.label }) { t -> vm.edit { it.copy(textShape = t) } }
+    SwitchRow(
+        if (look.textShape == TextShape.Rect) "Colour panel behind the text" else "Fill the shape with colour",
+        look.shapeColor != null,
+    ) { on ->
+        vm.edit { l -> l.copy(shapeColor = if (on) (l.shapeColor ?: c(0xFFFFFF)) else null) }
     }
+    look.shapeColor?.let { col ->
+        ColorField("Shape colour", col, withAlpha = true) { picked -> vm.edit { it.copy(shapeColor = picked) } }
+    }
+
     SectionTitle("Alignment")
     ChipRow(Align.entries, look.align, { it.name }) { a -> vm.edit { it.copy(align = a) } }
     Spacer(Modifier.height(4.dp))
@@ -321,6 +421,14 @@ fun LayoutTab(vm: AppViewModel, look: Look) {
     LabeledSlider("Line spacing", look.lineSpacing, 0.7f..2f, { v -> vm.edit { it.copy(lineSpacing = v) } })
     LabeledSlider("Letter spacing", look.letterSpacing, -0.05f..0.3f, { v -> vm.edit { it.copy(letterSpacing = v) } })
     SwitchRow("Spread lines to fill the height", look.fillHeight) { on -> vm.edit { it.copy(fillHeight = on) } }
+
+    SectionTitle("Size and position")
+    LabeledSlider(
+        "Text size (1.00 = fill the shape)", look.textScale, 0.3f..1f,
+        { v -> vm.edit { it.copy(textScale = v) } },
+    )
+    LabeledSlider("Move left / right", look.offsetX, -0.3f..0.3f, { v -> vm.edit { it.copy(offsetX = v) } })
+    LabeledSlider("Move up / down", look.offsetY, -0.3f..0.3f, { v -> vm.edit { it.copy(offsetY = v) } })
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -353,14 +461,132 @@ fun PaperTab(vm: AppViewModel, look: Look) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 12.dp),
         )
-    } else {
-        SectionTitle("Sheet")
-        ColorField("Paper colour", look.paperColor) { col -> vm.edit { it.copy(paperColor = col) } }
-        LabeledSlider("Texture", look.grain, 0f..1.2f, { v -> vm.edit { it.copy(grain = v) } })
-        LabeledSlider("Float on desk", look.paperInset, 0f..0.15f, { v -> vm.edit { it.copy(paperInset = v) } })
-        LabeledSlider(
-            "Tilt", look.tilt, -8f..8f, { v -> vm.edit { it.copy(tilt = v) } },
-            String.format(Locale.US, "%.1f°", look.tilt),
+        return
+    }
+    SectionTitle("Sheet")
+    ColorField("Paper colour", look.paperColor, withAlpha = look.paper == PaperType.Glass) { col ->
+        vm.edit { it.copy(paperColor = col) }
+    }
+    LabeledSlider("Texture", look.grain, 0f..1.2f, { v -> vm.edit { it.copy(grain = v) } })
+    LabeledSlider("Float on desk", look.paperInset, 0f..0.15f, { v -> vm.edit { it.copy(paperInset = v) } })
+    LabeledSlider(
+        "Tilt", look.tilt, -8f..8f, { v -> vm.edit { it.copy(tilt = v) } },
+        String.format(Locale.US, "%.1f°", look.tilt),
+    )
+
+    SectionTitle("Wear and damage")
+    SwitchRow("Coffee stains", look.stains) { on -> vm.edit { it.copy(stains = on) } }
+    SwitchRow("Folds", look.folds) { on -> vm.edit { it.copy(folds = on) } }
+    SwitchRow("Burnt edges", look.burnt) { on -> vm.edit { it.copy(burnt = on) } }
+    SwitchRow("Torn edges", look.torn) { on -> vm.edit { it.copy(torn = on) } }
+    SwitchRow("Ink blots", look.blots) { on -> vm.edit { it.copy(blots = on) } }
+    LabeledSlider("Amount of wear", look.wear, 0f..1.5f, { v -> vm.edit { it.copy(wear = v) } })
+}
+
+// ------------------------------------------------------------------------------------------------
+// SCENE (perspective and light)
+// ------------------------------------------------------------------------------------------------
+@Composable
+fun SceneTab(vm: AppViewModel, look: Look) {
+    SectionTitle("Perspective")
+    LabeledSlider(
+        "Lean back / forward", look.tiltX, -35f..35f, { v -> vm.edit { it.copy(tiltX = v) } },
+        String.format(Locale.US, "%.0f°", look.tiltX),
+    )
+    LabeledSlider(
+        "Turn left / right", look.tiltY, -35f..35f, { v -> vm.edit { it.copy(tiltY = v) } },
+        String.format(Locale.US, "%.0f°", look.tiltY),
+    )
+    SectionTitle("Light")
+    ChipRow(LightType.entries, look.light, { it.label }) { t -> vm.edit { it.copy(light = t) } }
+    if (look.light != LightType.None) {
+        LabeledSlider("Strength", look.lightStrength, 0f..1f, { v -> vm.edit { it.copy(lightStrength = v) } })
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// STICKERS
+// ------------------------------------------------------------------------------------------------
+private fun defaultStickerSize(t: StickerType): Float = when (t) {
+    StickerType.QuoteOpen, StickerType.QuoteClose -> 0.14f
+    StickerType.Frame, StickerType.Corners -> 0.9f
+    StickerType.Line, StickerType.DoubleLine, StickerType.Squiggle, StickerType.Arrow -> 0.4f
+    StickerType.Tape -> 0.3f
+    else -> 0.18f
+}
+
+@Composable
+fun StickersTab(vm: AppViewModel, look: Look, selected: String?, onSelect: (String?) -> Unit) {
+    fun update(id: String, f: (Sticker) -> Sticker) = vm.edit { l ->
+        l.copy(stickers = l.stickers.map { if (it.id == id) f(it) else it })
+    }
+
+    SectionTitle("Add a sticker")
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(StickerType.entries.toList()) { type ->
+            AssistChip(
+                onClick = {
+                    val id = UUID.randomUUID().toString()
+                    val first = look.stickers.size
+                    vm.edit { l ->
+                        l.copy(
+                            stickers = l.stickers + Sticker(
+                                id = id, type = type,
+                                x = 0.5f, y = if (first == 0) 0.5f else 0.35f + 0.1f * (first % 4),
+                                size = defaultStickerSize(type), color = l.textColor or -0x1000000,
+                            ),
+                        )
+                    }
+                    onSelect(id)
+                },
+                label = { Text(type.symbol + "  " + type.label) },
+            )
+        }
+    }
+
+    if (look.stickers.isEmpty()) {
+        Text(
+            "Tap a sticker to place it on the page, then drag it on the preview.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 12.dp),
         )
+        return
+    }
+
+    SectionTitle("On the page")
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        look.stickers.forEach { s ->
+            FilterChip(selected = s.id == selected, onClick = { onSelect(s.id) }, label = { Text(s.type.symbol + " " + s.type.label) })
+        }
+    }
+
+    val sel = look.stickers.firstOrNull { it.id == selected } ?: return
+    Spacer(Modifier.height(6.dp))
+    LabeledSlider("Size", sel.size, 0.03f..1f, { v -> update(sel.id) { it.copy(size = v) } })
+    LabeledSlider("Rotation", sel.rot, -180f..180f, { v -> update(sel.id) { it.copy(rot = v) } }, "${sel.rot.toInt()}°")
+    LabeledSlider("Opacity", sel.alpha, 0.1f..1f, { v -> update(sel.id) { it.copy(alpha = v) } })
+    LabeledSlider("Position left / right", sel.x, 0f..1f, { v -> update(sel.id) { it.copy(x = v) } })
+    LabeledSlider("Position up / down", sel.y, 0f..1f, { v -> update(sel.id) { it.copy(y = v) } })
+    ColorField("Colour", sel.color) { col -> update(sel.id) { it.copy(color = col) } }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+        OutlinedButton(onClick = {
+            val copy = sel.copy(id = UUID.randomUUID().toString(), x = (sel.x + 0.06f).coerceAtMost(1f), y = (sel.y + 0.06f).coerceAtMost(1f))
+            vm.edit { l -> l.copy(stickers = l.stickers + copy) }
+            onSelect(copy.id)
+        }) {
+            Icon(Icons.Rounded.ContentCopy, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Duplicate")
+        }
+        OutlinedButton(onClick = {
+            vm.edit { l -> l.copy(stickers = l.stickers.filter { it.id != sel.id }) }
+            onSelect(null)
+        }) {
+            Icon(Icons.Rounded.Delete, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Delete")
+        }
     }
 }

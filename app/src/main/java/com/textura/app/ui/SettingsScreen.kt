@@ -54,6 +54,7 @@ fun SettingsScreen(vm: AppViewModel) {
 
         SectionTitle("Feel")
         SwitchRow("Haptic tick when swiping", s.haptics) { on -> vm.updateSettings { it.copy(haptics = on) } }
+        SwitchRow("Smart order (best looks for your text first)", s.smartOrder) { on -> vm.updateSettings { it.copy(smartOrder = on) } }
 
         SectionTitle("About")
         Text(

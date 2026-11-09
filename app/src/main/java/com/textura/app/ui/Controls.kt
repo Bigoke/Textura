@@ -56,6 +56,13 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 import android.graphics.Color as AColor
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
+import com.textura.app.render.Markup
 
 // ------------------------------------------------------------------------------------------------
 // Preview rendering with an in-memory cache
@@ -304,4 +311,53 @@ fun EmptyHint(text: String, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
         Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
     }
+}
+
+
+// ------------------------------------------------------------------------------------------------
+// Shared helpers
+// ------------------------------------------------------------------------------------------------
+
+/** Scrollable row of every canvas size. */
+@Composable
+fun ShapePicker(selected: CanvasShape, onSelect: (CanvasShape) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        CanvasShape.entries.forEach { s -> ShapeGlyph(s, s == selected) { onSelect(s) } }
+    }
+}
+
+/** Dims the [b]...[/b] style formatting tags inside a text field so the words stay readable. */
+class TagDimTransformation(private val tagColor: Color) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val styled = buildAnnotatedString {
+            append(text.text)
+            Markup.TAG.findAll(text.text).forEach {
+                addStyle(SpanStyle(color = tagColor), it.range.first, it.range.last + 1)
+            }
+        }
+        return TransformedText(styled, OffsetMapping.Identity)
+    }
+}
+
+/** A colour from the look that suits the interface accent (most saturated, not too dark). */
+fun accentOf(look: Look, fallback: Color): Color {
+    val candidates = ArrayList<Int>()
+    look.shapeColor?.let { candidates.add(it) }
+    look.textColor2?.let { candidates.add(it) }
+    candidates.addAll(look.bg.colors)
+    candidates.add(look.textColor)
+    var best: Int? = null
+    var bestScore = 0.3f
+    val hsv = FloatArray(3)
+    for (col in candidates) {
+        AColor.colorToHSV(col, hsv)
+        if (hsv[2] < 0.35f) continue
+        if (hsv[1] > bestScore) { bestScore = hsv[1]; best = col }
+    }
+    return best?.let { Color(it or -0x1000000) } ?: fallback
 }

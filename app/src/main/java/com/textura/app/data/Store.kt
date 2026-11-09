@@ -28,6 +28,7 @@ data class Settings(
     val defaultFormat: ImageFormat = ImageFormat.PNG,
     val jpgQuality: Int = 92,
     val haptics: Boolean = true,
+    val smartOrder: Boolean = true,
 )
 
 data class HistoryItem(
