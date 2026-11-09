@@ -187,7 +187,7 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
                 }
             }
 
-            AnimatedVisibility(visible = grid, enter = fadeIn(), exit = fadeOut()) {
+            if (grid) {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
                     modifier = Modifier
