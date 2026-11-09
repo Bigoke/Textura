@@ -19,7 +19,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -86,12 +91,14 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
 
     // live preview of everything that changes the picture (not the sound or the file format)
     val previewKey = o.copy(
-        gif = false, fps = 24, longEdge = 1280, gifFps = 12, gifEdge = 480,
+        gif = false, separate = false, fps = 24, longEdge = 1280, gifFps = 12, gifEdge = 480,
         fx = FxSound.Auto, fxVolume = 0.8f, music = MusicChoice.None, musicVolume = 0.5f, musicPath = null,
     )
-    LaunchedEffect(look, vm.text, vm.shape, previewKey) {
+    val pageTexts = remember(vm.text, o.pages) { vm.splitPages(vm.text, o.pages) }
+    val shownPages = if (o.separate) pageTexts.take(1) else pageTexts
+    LaunchedEffect(look, vm.text, vm.shape, previewKey, shownPages) {
         val (pw, ph) = VideoExporter.dims(vm.shape, 300, 2)
-        val frames = VideoFrames(ctx, look, vm.text, vm.shape, previewKey, pw, ph, null, keep = true)
+        val frames = VideoFrames(ctx, look, shownPages, vm.shape, previewKey, pw, ph, null, keep = true)
         val fps = 8
         val n = ceil(frames.duration * fps).toInt().coerceAtLeast(1)
         val cache = HashMap<Int, ImageBitmap>()
@@ -106,8 +113,10 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
         }
     }
 
-    val write = if (o.seconds > 0f) o.seconds else VideoFrames.autoWrite(vm.text, VideoFrames.resolveMode(look, o.style))
-    val total = (if (o.intro) o.introSec else 0f) + write + o.hold + (if (o.outro) o.outroSec else 0f) + (if (o.loop) 0.5f else 0f)
+    val mode = VideoFrames.resolveMode(look, o.style)
+    val perPage = shownPages.map { if (o.seconds > 0f) o.seconds else VideoFrames.autoWrite(it, mode) }
+    val total = (if (o.intro) o.introSec else 0f) + perPage.sum() + o.hold * shownPages.size +
+        0.4f * (shownPages.size - 1) + (if (o.outro) o.outroSec else 0f) + (if (o.loop) 0.5f else 0f)
     val (dw, dh) = VideoExporter.dims(vm.shape, if (o.gif) o.gifEdge else o.longEdge, if (o.gif) 2 else 16)
 
     fun create() {
@@ -120,7 +129,12 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
             progress = null
             when (r) {
                 VideoExporter.Result.Ok -> {
-                    Toast.makeText(ctx, VideoExporter.note ?: (if (o.gif) "GIF saved to Pictures/Textura" else "Video saved to Movies/Textura"), Toast.LENGTH_LONG).show()
+                    val many = o.separate && o.pages > 1
+                    Toast.makeText(
+                        ctx,
+                        VideoExporter.note ?: (if (many) "${o.pages} files saved to " else "Saved to ") + (if (o.gif) "Pictures/Textura" else "Movies/Textura"),
+                        Toast.LENGTH_LONG,
+                    ).show()
                     onDone()
                 }
                 VideoExporter.Result.NoSound -> {
@@ -144,7 +158,8 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
         ) {
             Text("Video & GIF", style = MaterialTheme.typography.titleLarge)
             Text(
-                "$dw × $dh px · about ${"%.1f".format(total)} s",
+                "$dw × $dh px · about ${"%.1f".format(total)} s" +
+                    if (o.separate && o.pages > 1) " each, ${o.pages} files" else if (o.pages > 1) " · ${o.pages} pages" else "",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -167,6 +182,21 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
 
             SectionTitle("Format")
             ChipRow(listOf(false, true), o.gif, { if (it) "GIF (no sound)" else "MP4 video" }) { g -> vm.updateVideo { it.copy(gif = g) } }
+
+            SectionTitle("Pages (split long text over several pages)")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { vm.updateVideo { it.copy(pages = (it.pages - 1).coerceAtLeast(1)) } }, enabled = !busy) { Icon(Icons.Rounded.Remove, "Fewer pages") }
+                Text(if (o.pages == 1) "Single page" else "${o.pages} pages", modifier = Modifier.width(110.dp))
+                IconButton(onClick = { vm.updateVideo { it.copy(pages = (it.pages + 1).coerceAtMost(10)) } }, enabled = !busy) { Icon(Icons.Rounded.Add, "More pages") }
+            }
+            if (o.pages > 1) {
+                SwitchRow("Separate file for each page", o.separate) { on -> vm.updateVideo { it.copy(separate = on) } }
+                Text(
+                    if (o.separate) "Each page is saved as its own video or GIF, like the image carousel."
+                    else "All pages play one after another in a single video or GIF.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             SectionTitle("Animation")
             ChipRow(VideoStyle.entries, o.style, { it.label }) { s -> vm.updateVideo { it.copy(style = s) } }

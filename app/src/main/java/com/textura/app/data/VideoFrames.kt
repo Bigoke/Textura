@@ -22,7 +22,7 @@ import kotlin.math.min
 class VideoFrames(
     private val context: Context,
     private val look: Look,
-    private val text: String,
+    private val texts: List<String>,
     private val shape: CanvasShape,
     private val opts: VideoOptions,
     val width: Int,
@@ -33,20 +33,54 @@ class VideoFrames(
 ) {
     val mode: RevealMode = resolveMode(look, opts.style)
     val introDur = if (opts.intro) opts.introSec else 0f
-    val writeDur = if (opts.seconds > 0f) opts.seconds else autoWrite(text, mode)
     val holdDur = opts.hold.coerceAtLeast(0f)
     val outroDur = if (opts.outro) opts.outroSec else 0f
     private val fadeOut = if (opts.loop) 0.5f else 0f
-    val duration = introDur + writeDur + holdDur + outroDur + fadeOut
-    val writeStart = introDur
+    private val pageGap = 0.4f
+
+    class Seg(val text: String, val start: Float, val dur: Float)
+
+    /** Where each page is written on the timeline (used for the sound). */
+    val segments: List<Seg>
+    val duration: Float
+
+    init {
+        val segs = ArrayList<Seg>()
+        var t = introDur
+        for ((i, tx) in texts.withIndex()) {
+            val wd = if (opts.seconds > 0f) opts.seconds else autoWrite(tx, mode)
+            segs.add(Seg(tx, t, wd))
+            t += wd + holdDur
+            if (i < texts.size - 1) t += pageGap
+        }
+        segments = segs
+        duration = t + outroDur + fadeOut
+    }
 
     private val cached = ArrayList<Bitmap>()
     private var temp: Bitmap? = null
     private var work: Bitmap? = null
 
-    private val scene: Renderer.Scene by lazy { Renderer.Scene(context, look, text, shape, width, height, signature) }
-    private val blank: Bitmap by lazy { own(scene.frame(0f, mode, false)) }
-    private val finalBmp: Bitmap by lazy { own(scene.frame(1f, mode, false)) }
+    /** One page: its prepared scene and its first and last pictures, rebuilt on demand and freed when passed. */
+    private inner class Page(val text: String) {
+        private var scene: Renderer.Scene? = null
+        private var blankB: Bitmap? = null
+        private var finalB: Bitmap? = null
+
+        fun scene(): Renderer.Scene = scene ?: Renderer.Scene(context, look, text, shape, width, height, signature).also { scene = it }
+        fun blank(): Bitmap = blankB ?: own(scene().frame(0f, mode, false)).also { blankB = it }
+        fun final(): Bitmap = finalB ?: own(scene().frame(1f, mode, false)).also { finalB = it }
+
+        fun free() {
+            if (keep) return
+            for (b in listOf(blankB, finalB)) if (b != null) { cached.remove(b); if (b !== temp) runCatching { b.recycle() } }
+            blankB = null; finalB = null
+            runCatching { scene?.release() }
+            scene = null
+        }
+    }
+
+    private val pages = texts.map { Page(it) }
     private val introCard: Bitmap by lazy { own(card(opts.introText.ifBlank { "Title" })) }
     private val outroCard: Bitmap by lazy { own(card(opts.outroText.ifBlank { signature?.text ?: "" }.ifBlank { "The end" })) }
 
@@ -69,33 +103,42 @@ class VideoFrames(
             if (x < introDur) {
                 val edge = min(0.35f, introDur * 0.3f)
                 val a = min(1f, min(x / edge, (introDur - x) / edge)).coerceIn(0f, 1f)
-                return if (a >= 0.99f) introCard else mix(blank, introCard, a)
+                return if (a >= 0.99f) introCard else mix(pages[0].blank(), introCard, a)
             }
             x -= introDur
         }
-        if (x < writeDur) {
-            val f = (x / writeDur).coerceIn(0f, 1f)
-            if (f <= 0f && !opts.pen) return blank
-            if (keep) return scene.frame(f, mode, opts.pen)
-            val w = work ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { work = it }
-            return scene.frame(f, mode, opts.pen, w)
+        for ((i, pg) in pages.withIndex()) {
+            val wd = segments[i].dur
+            if (x < wd) {
+                if (!keep) for (j in 0 until i) pages[j].free()
+                val f = (x / wd).coerceIn(0f, 1f)
+                if (f <= 0f && !opts.pen) return pg.blank()
+                if (keep) return pg.scene().frame(f, mode, opts.pen)
+                val w = work ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { work = it }
+                return pg.scene().frame(f, mode, opts.pen, w)
+            }
+            x -= wd
+            if (x < holdDur) return pg.final()
+            x -= holdDur
+            if (i < pages.size - 1) {
+                if (x < pageGap) return mix(pg.final(), pages[i + 1].blank(), x / pageGap)
+                x -= pageGap
+            }
         }
-        x -= writeDur
-        if (x < holdDur) return finalBmp
-        x -= holdDur
+        val last = pages.last()
         if (outroDur > 0f) {
             if (x < outroDur) {
                 val a = min(1f, x / min(0.5f, outroDur * 0.4f)).coerceIn(0f, 1f)
-                return if (a >= 0.99f) outroCard else mix(finalBmp, outroCard, a)
+                return if (a >= 0.99f) outroCard else mix(last.final(), outroCard, a)
             }
             x -= outroDur
         }
         if (fadeOut > 0f) {
-            val last = if (outroDur > 0f) outroCard else finalBmp
+            val end = if (outroDur > 0f) outroCard else last.final()
             val a = (1f - x / fadeOut).coerceIn(0f, 1f)
-            return if (a >= 0.99f) last else mix(blank, last, a)
+            return if (a >= 0.99f) end else mix(pages[0].blank(), end, a)
         }
-        return if (outroDur > 0f) outroCard else finalBmp
+        return if (outroDur > 0f) outroCard else last.final()
     }
 
     private fun mix(base: Bitmap, top: Bitmap, a: Float): Bitmap {
@@ -109,8 +152,8 @@ class VideoFrames(
         if (!keep) {
             temp?.takeIf { it !in cached && it !== work }?.recycle()
             work?.recycle()
-            cached.forEach { runCatching { it.recycle() } }
-            runCatching { scene.release() }
+            pages.forEach { it.free() }
+            cached.toList().forEach { runCatching { it.recycle() } }
         }
         work = null
         temp = null

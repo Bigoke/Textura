@@ -412,11 +412,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         onProgress: (Int, Int) -> Unit,
     ): com.textura.app.data.VideoExporter.Result {
         val ctx = getApplication<Application>()
-        val t = text
+        val pageTexts = splitPages(text, opts.pages.coerceIn(1, 10))
         val sh = shape
         return withContext(Dispatchers.Default) {
             runCatching {
-                com.textura.app.data.VideoExporter.export(ctx, look, t, sh, opts, signature, onProgress, { !isActive })
+                if (opts.separate && pageTexts.size > 1) {
+                    var worst = com.textura.app.data.VideoExporter.Result.Ok
+                    for ((i, pt) in pageTexts.withIndex()) {
+                        val r = com.textura.app.data.VideoExporter.export(
+                            ctx, look, listOf(pt), sh, opts, signature,
+                            { d, t -> onProgress(i * 1000 + (1000L * d / maxOf(1, t)).toInt(), pageTexts.size * 1000) },
+                            { !isActive },
+                        )
+                        if (r == com.textura.app.data.VideoExporter.Result.Failed) return@runCatching r
+                        if (r == com.textura.app.data.VideoExporter.Result.NoSound) worst = r
+                    }
+                    worst
+                } else {
+                    com.textura.app.data.VideoExporter.export(ctx, look, pageTexts, sh, opts, signature, onProgress, { !isActive })
+                }
             }.getOrDefault(com.textura.app.data.VideoExporter.Result.Failed)
         }
     }

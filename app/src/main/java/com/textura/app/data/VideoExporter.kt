@@ -67,23 +67,23 @@ object VideoExporter {
     fun export(
         context: Context,
         look: Look,
-        text: String,
+        texts: List<String>,
         shape: CanvasShape,
         opts: VideoOptions,
         signature: Watermark?,
         onProgress: (Int, Int) -> Unit,
         cancelled: () -> Boolean,
-    ): Result = if (opts.gif) exportGif(context, look, text, shape, opts, signature, onProgress, cancelled)
-    else exportMp4(context, look, text, shape, opts, signature, onProgress, cancelled)
+    ): Result = if (opts.gif) exportGif(context, look, texts, shape, opts, signature, onProgress, cancelled)
+    else exportMp4(context, look, texts, shape, opts, signature, onProgress, cancelled)
 
     // ------------------------------------------------------------------------------------------ GIF
 
     private fun exportGif(
-        context: Context, look: Look, text: String, shape: CanvasShape, opts: VideoOptions, signature: Watermark?,
+        context: Context, look: Look, texts: List<String>, shape: CanvasShape, opts: VideoOptions, signature: Watermark?,
         onProgress: (Int, Int) -> Unit, cancelled: () -> Boolean,
     ): Result {
         val (w, h) = dims(shape, opts.gifEdge, 2)
-        val frames = VideoFrames(context, look, text, shape, opts, w, h, signature)
+        val frames = VideoFrames(context, look, texts, shape, opts, w, h, signature)
         val resolver = context.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "Textura_" + System.currentTimeMillis() + ".gif")
@@ -139,7 +139,7 @@ object VideoExporter {
     // ------------------------------------------------------------------------------------------ MP4
 
     private fun exportMp4(
-        context: Context, look: Look, text: String, shape: CanvasShape, opts: VideoOptions, signature: Watermark?,
+        context: Context, look: Look, texts: List<String>, shape: CanvasShape, opts: VideoOptions, signature: Watermark?,
         onProgress: (Int, Int) -> Unit, cancelled: () -> Boolean,
     ): Result {
         note = null
@@ -151,7 +151,7 @@ object VideoExporter {
         if (asked.first != w || asked.second != h || fps != opts.fps) {
             note = "Saved at $w × $h, $fps fps, the most this phone can encode."
         }
-        val frames = VideoFrames(context, look, text, shape, opts, w, h, signature)
+        val frames = VideoFrames(context, look, texts, shape, opts, w, h, signature)
         val total = max(1, ceil(frames.duration * fps).toInt())
 
         // soundtrack first, so a failure there still gives a silent video
@@ -160,7 +160,7 @@ object VideoExporter {
         val wantsSound = opts.fx != FxSound.Off || opts.music != MusicChoice.None
         if (wantsSound) {
             audio = runCatching {
-                val pcm = SoundBuilder.build(text, frames.mode, opts, frames.writeStart, frames.writeDur, frames.duration)
+                val pcm = SoundBuilder.build(frames.segments, frames.mode, opts, frames.duration)
                 pcm?.let { encodeAudio(it) }
             }.getOrNull()
             if (audio == null) soundFailed = true

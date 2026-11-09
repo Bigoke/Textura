@@ -22,11 +22,9 @@ object SoundBuilder {
     const val RATE = 44100
 
     fun build(
-        text: String,
+        segments: List<VideoFrames.Seg>,
         mode: RevealMode,
         opts: VideoOptions,
-        writeStart: Float,
-        writeDur: Float,
         total: Float,
     ): ShortArray? {
         val fxKind = when (opts.fx) {
@@ -49,11 +47,13 @@ object SoundBuilder {
 
         if (fxKind != null) {
             val fx = FloatArray(n)
-            val plain = Markup.strip(text)
-            when (fxKind) {
-                FxSound.Keys -> keys(fx, plain, writeStart, writeDur, rnd)
-                FxSound.Pen -> pen(fx, plain, writeStart, writeDur, rnd, mode)
-                else -> rustle(fx, plain, writeStart, writeDur, rnd, mode)
+            for (seg in segments) {
+                val plain = Markup.strip(seg.text)
+                when (fxKind) {
+                    FxSound.Keys -> keys(fx, plain, seg.start, seg.dur, rnd)
+                    FxSound.Pen -> pen(fx, plain, seg.start, seg.dur, rnd, mode)
+                    else -> rustle(fx, plain, seg.start, seg.dur, rnd, mode)
+                }
             }
             val g = opts.fxVolume.coerceIn(0f, 1f)
             for (i in 0 until n) mix[i] += fx[i] * g

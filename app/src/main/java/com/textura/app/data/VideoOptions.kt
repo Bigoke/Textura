@@ -29,6 +29,10 @@ data class VideoOptions(
     val music: MusicChoice = MusicChoice.None,
     val musicVolume: Float = 0.5f,
     val musicPath: String? = null,
+    /** Split long text over this many pages, like the image carousel. */
+    val pages: Int = 1,
+    /** With several pages: one video file per page instead of one video with all pages in a row. */
+    val separate: Boolean = false,
     val gif: Boolean = false,
     val gifFps: Int = 12,
     val gifEdge: Int = 480,
