@@ -318,6 +318,8 @@ object GlyphStrokes {
             }
             lastX = cur % w; lastY = cur / w
             first = false
+            // tiny side-spurs left by the thinning are not pen strokes: skip them so the pen doesn't jump
+            if (startViaVisited >= 0 && chain.size < 7) continue
             strokes.add(chain.toIntArray())
         }
         return strokes
