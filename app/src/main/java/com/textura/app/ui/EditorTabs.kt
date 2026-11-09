@@ -59,6 +59,7 @@ import com.textura.app.model.GradientType
 import com.textura.app.model.Look
 import com.textura.app.model.PaperType
 import com.textura.app.model.c
+import com.textura.app.model.ca
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -336,6 +337,7 @@ private fun defaultPaperColor(type: PaperType): Int = when (type) {
     PaperType.Chalkboard -> c(0x2F4F43)
     PaperType.Newsprint -> c(0xE4DFD3)
     PaperType.Kraft -> c(0xB98B5E)
+    PaperType.Glass -> ca(70, 0xFFFFFF)
     PaperType.None -> c(0xF6F1E7)
 }
 
