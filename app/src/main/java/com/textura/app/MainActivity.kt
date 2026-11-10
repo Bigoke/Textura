@@ -1,5 +1,7 @@
 package com.textura.app
 
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -86,12 +88,14 @@ private val Tabs = listOf(
     NavTab("settings", "Settings", Icons.Rounded.Settings),
 )
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun AppNav(vm: AppViewModel) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
-    val showBar = route in Tabs.map { it.route }
+    val imeOpen = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+    val showBar = route in Tabs.map { it.route } && !imeOpen
 
     fun openBrowser() {
         nav.navigate("browser") { launchSingleTop = true }
@@ -131,7 +135,7 @@ private fun AppNav(vm: AppViewModel) {
         NavHost(
             nav,
             startDestination = "home",
-            modifier = Modifier.padding(padding),
+            modifier = Modifier.padding(padding).imePadding(),
             enterTransition = {
                 if (initialState.destination.route in tabRoutes && targetState.destination.route in tabRoutes)
                     fadeIn(tween(240, delayMillis = 70)) + scaleIn(tween(300, easing = ease), initialScale = 0.97f)
