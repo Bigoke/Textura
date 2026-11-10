@@ -80,6 +80,8 @@ fun EditorScreen(vm: AppViewModel, onDone: () -> Unit, onHandwriting: () -> Unit
     var exportMode by remember { mutableStateOf<ExportMode?>(null) }
     var saveDialog by remember { mutableStateOf(false) }
     var templateName by remember { mutableStateOf("") }
+    var projectDialog by remember { mutableStateOf(false) }
+    var projectName by remember { mutableStateOf("") }
     var selectedSticker by remember { mutableStateOf<String?>(null) }
     var zoom by remember { mutableFloatStateOf(1f) }
     var pan by remember { mutableStateOf(Offset.Zero) }
@@ -102,7 +104,12 @@ fun EditorScreen(vm: AppViewModel, onDone: () -> Unit, onHandwriting: () -> Unit
             Text("Edit look", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             IconButton(onClick = vm::undo, enabled = vm.canUndo) { Icon(Icons.AutoMirrored.Rounded.Undo, "Undo") }
             IconButton(onClick = vm::redo, enabled = vm.canRedo) { Icon(Icons.AutoMirrored.Rounded.Redo, "Redo") }
-            IconButton(onClick = vm::resetToTemplate) { Icon(Icons.Rounded.Restore, "Reset to template") }
+            OverflowMenu(
+                listOf(
+                    MenuAction("Reset to template", Icons.Rounded.Restore) { vm.resetToTemplate() },
+                    MenuAction("Save as my template") { templateName = ""; saveDialog = true },
+                ),
+            )
             TextButton(onClick = ::finish) { Text("Done") }
         }
 
@@ -263,8 +270,8 @@ fun EditorScreen(vm: AppViewModel, onDone: () -> Unit, onHandwriting: () -> Unit
                     } } }
                     Spacer(Modifier.height(18.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedButton(onClick = { templateName = ""; saveDialog = true }, modifier = Modifier.weight(1f)) {
-                            Text("Save as my template")
+                        OutlinedButton(onClick = { projectName = ""; projectDialog = true }, modifier = Modifier.weight(1f)) {
+                            Text("Save project")
                         }
                         Button(onClick = { exportMode = ExportMode.Save }, modifier = Modifier.weight(1f)) {
                             Text("Export")
@@ -295,6 +302,28 @@ fun EditorScreen(vm: AppViewModel, onDone: () -> Unit, onHandwriting: () -> Unit
                 }) { Text("Save") }
             },
             dismissButton = { TextButton(onClick = { saveDialog = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (projectDialog) {
+        AlertDialog(
+            onDismissRequest = { projectDialog = false },
+            title = { Text("Save project") },
+            text = {
+                OutlinedTextField(
+                    value = projectName,
+                    onValueChange = { projectName = it },
+                    singleLine = true,
+                    label = { Text("Project name") },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.saveProject(projectName) { Toast.makeText(ctx, "Saved in Library, Projects", Toast.LENGTH_SHORT).show() }
+                    projectDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { projectDialog = false }) { Text("Cancel") } },
         )
     }
 

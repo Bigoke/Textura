@@ -1,5 +1,6 @@
 package com.textura.app.ui
 
+import androidx.compose.runtime.produceState
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -350,6 +351,28 @@ fun BackgroundTab(vm: AppViewModel, look: Look) {
                 Text(if (bg.imagePath == null) "Choose photo" else "Change photo")
             }
             if (bg.imagePath != null) {
+                val info by produceState<com.textura.app.render.PhotoTools.Analysis?>(null, bg.imagePath) {
+                    value = withContext(Dispatchers.IO) { com.textura.app.render.PhotoTools.analyse(bg.imagePath!!) }
+                }
+                info?.let { a ->
+                    OutlinedButton(onClick = {
+                        val light = a.brightness > 0.55f
+                        val dimAmt = if (light) (0.12f + a.busyness * 0.4f).coerceAtMost(0.4f)
+                        else (0.18f + a.busyness * 0.9f + (a.brightness - 0.25f).coerceAtLeast(0f) * 0.5f).coerceIn(0.18f, 0.7f)
+                        vm.edit { l ->
+                            l.copy(
+                                textColor = if (light) c(0x111111) else c(0xFFFFFF),
+                                bg = l.bg.copy(dim = dimAmt, blur = if (a.busyness > 0.28f) maxOf(l.bg.blur, 0.12f) else l.bg.blur),
+                            )
+                        }
+                    }) { Text("Make the text readable") }
+                    if (a.palette.isNotEmpty()) {
+                        Text("Colours from this photo (tap to use for the text)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 6.dp)) {
+                            a.palette.forEach { col -> ColorDot(col or -0x1000000, 36.dp) { vm.edit { it.copy(textColor = col or -0x1000000) } } }
+                        }
+                    }
+                }
                 LabeledSlider("Blur", bg.blur, 0f..1f, { v -> setBg { it.copy(blur = v) } })
                 LabeledSlider("Dim", bg.dim, 0f..0.9f, { v -> setBg { it.copy(dim = v) } })
                 SwitchRow("Colour overlay", bg.overlay.isNotEmpty()) { on ->

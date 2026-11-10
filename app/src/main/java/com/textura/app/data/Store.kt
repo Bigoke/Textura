@@ -43,6 +43,9 @@ data class HistoryItem(
     val text: String = "",
     val shape: CanvasShape = CanvasShape.Portrait,
     val look: Look = Look(),
+    /** A named project the person kept on purpose; these are never trimmed away like ordinary history. */
+    val name: String = "",
+    val saved: Boolean = false,
 )
 
 data class HandData(val thickness: Float = 0.05f, val glyphs: Map<String, List<List<List<Float>>>> = emptyMap())

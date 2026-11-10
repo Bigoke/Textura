@@ -40,7 +40,7 @@ import com.textura.app.model.Look
 import java.text.DateFormat
 import java.util.Date
 
-private val LibraryTabs = listOf("Favorites", "My templates", "History")
+private val LibraryTabs = listOf("Favorites", "My templates", "Projects", "History")
 
 @Composable
 fun LibraryScreen(vm: AppViewModel, onOpenLook: (Look) -> Unit, onOpenHistory: (HistoryItem) -> Unit) {
@@ -64,7 +64,8 @@ fun LibraryScreen(vm: AppViewModel, onOpenLook: (Look) -> Unit, onOpenHistory: (
                 vm, vm.custom, "Edit a look, then choose Save as my template.",
                 onOpenLook, onDelete = { vm.deleteTemplate(it.id) },
             )
-            else -> HistoryGrid(vm, onOpenHistory)
+            2 -> HistoryGrid(vm, onOpenHistory, projects = true)
+            else -> HistoryGrid(vm, onOpenHistory, projects = false)
         }
         }
     }
@@ -115,9 +116,10 @@ private fun LooksGrid(
 }
 
 @Composable
-private fun HistoryGrid(vm: AppViewModel, onOpen: (HistoryItem) -> Unit) {
-    if (vm.history.isEmpty()) {
-        EmptyHint("Designs you save or share appear here.")
+private fun HistoryGrid(vm: AppViewModel, onOpen: (HistoryItem) -> Unit, projects: Boolean) {
+    val shown = vm.history.filter { it.saved == projects }
+    if (shown.isEmpty()) {
+        EmptyHint(if (projects) "In the editor, tap Save project to keep a design here and continue it later." else "Designs you export or share appear here.")
         return
     }
     val fmt = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
@@ -128,7 +130,7 @@ private fun HistoryGrid(vm: AppViewModel, onOpen: (HistoryItem) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        items(vm.history, key = { it.id }) { item ->
+        items(shown, key = { it.id }) { item ->
             Column {
                 Box {
                     HistoryThumb(vm, item, 220.dp, Modifier.fillMaxWidth()) { onOpen(item) }
@@ -144,6 +146,7 @@ private fun HistoryGrid(vm: AppViewModel, onOpen: (HistoryItem) -> Unit) {
                         Icon(Icons.Rounded.Close, "Delete", tint = Color.White, modifier = Modifier.size(16.dp))
                     }
                 }
+                if (item.name.isNotBlank()) Text(item.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, modifier = Modifier.padding(top = 6.dp))
                 Text(
                     fmt.format(Date(item.time)),
                     style = MaterialTheme.typography.labelSmall,

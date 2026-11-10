@@ -27,7 +27,9 @@ import com.textura.app.model.TextShape
 import com.textura.app.render.Markup
 import com.textura.app.model.Look
 import com.textura.app.render.Renderer
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
@@ -274,9 +276,37 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.saveThumb(id, thumb)
         val item = HistoryItem(id, System.currentTimeMillis(), text, shape, look.copy(id = look.id))
         val next = listOf(item) + history
-        next.drop(HISTORY_MAX).forEach { store.deleteThumb(it.id) }
-        history = next.take(HISTORY_MAX)
+        val plain = next.filter { !it.saved }
+        plain.drop(HISTORY_MAX).forEach { store.deleteThumb(it.id) }
+        val keep = plain.take(HISTORY_MAX).map { it.id }.toSet()
+        history = next.filter { it.saved || it.id in keep }
         store.saveHistory(history)
+    }
+
+    /** Keeps the design being edited (text, shape, look) as a named project. */
+    fun saveProject(name: String, onDone: () -> Unit = {}) {
+        val look = editing ?: working ?: return
+        val shot = text
+        val sh = shape
+        viewModelScope.launch {
+            val thumb = withContext(Dispatchers.Default) {
+                runCatching { makeThumb(Renderer.render(getApplication<Application>(), look, shot, sh, 480)) }.getOrNull()
+            } ?: return@launch
+            val id = UUID.randomUUID().toString()
+            store.saveThumb(id, thumb)
+            val label = name.trim().ifEmpty { "Project " + (history.count { it.saved } + 1) }
+            val item = HistoryItem(id, System.currentTimeMillis(), shot, sh, look.copy(id = look.id), label, true)
+            history = listOf(item) + history
+            store.saveHistory(history)
+            onDone()
+        }
+    }
+
+    /** Splits the text at blank lines (or single lines when there are none), one design per piece. */
+    fun splitParagraphs(raw: String): List<String> {
+        val blocks = raw.split(Regex("\\n\\s*\\n")).map { it.trim() }.filter { it.isNotEmpty() }
+        if (blocks.size > 1) return blocks
+        return raw.split("\n").map { it.trim() }.filter { it.isNotEmpty() }.ifEmpty { listOf(raw) }
     }
 
     // ---------------------------------------------------------------- export
@@ -321,10 +351,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         pages: Int = 1,
         signature: Watermark? = null,
         targetPackage: String? = null,
+        byParagraph: Boolean = false,
     ): ExportResult {
         val ctx = getApplication<Application>()
         val s = settings
-        val pageTexts = splitPages(text, pages)
+        val pageTexts = if (byParagraph) splitParagraphs(text) else splitPages(text, pages)
         val currentShape = shape
         val png = transparent && format == ImageFormat.PNG
         return withContext(Dispatchers.Default) {

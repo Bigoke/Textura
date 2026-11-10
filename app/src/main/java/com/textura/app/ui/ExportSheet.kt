@@ -86,6 +86,7 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
     var format by remember { mutableStateOf(vm.settings.defaultFormat) }
     var transparent by remember { mutableStateOf(false) }
     var pages by remember { mutableIntStateOf(1) }
+    var byParagraph by remember { mutableStateOf(false) }
     var signOn by remember { mutableStateOf(vm.settings.signatureOn && vm.settings.signature.isNotBlank()) }
     var busy by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<Pair<Int, Int>?>(null) }
@@ -94,15 +95,16 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
 
     val (dw, dh) = Renderer.designSize(vm.shape)
     val scale = longEdge / max(dw, dh)
+    val paraCount = remember(vm.text, byParagraph) { if (byParagraph) vm.splitParagraphs(vm.text).size else 0 }
     val sizeText = "${(dw * scale).roundToInt()} × ${(dh * scale).roundToInt()} px" +
-        if (pages > 1) " · $pages pages" else ""
+        if (byParagraph) " · $paraCount pages" else if (pages > 1) " · $pages pages" else ""
     val signature = if (signOn && vm.settings.signature.isNotBlank()) Watermark(vm.settings.signature, vm.settings.signaturePos, vm.settings.signatureStyle, vm.settings.signatureColor) else null
 
     fun run(share: Boolean, pkg: String? = null) {
         if (busy) return
         busy = true
         job = scope.launch {
-            val result = vm.export(look, share, longEdge, format, transparent, pages, signature, pkg)
+            val result = vm.export(look, share, longEdge, format, transparent, pages, signature, pkg, byParagraph)
             busy = false
             when (result) {
                 ExportResult.Saved -> {
@@ -178,7 +180,8 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
 
             }
             Group("Carousel (split long text over several pages)") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            SwitchRow("One page per paragraph (blank line = new page)", byParagraph) { byParagraph = it }
+            if (!byParagraph) Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { pages = (pages - 1).coerceAtLeast(1) }, enabled = !busy) { Icon(Icons.Rounded.Remove, "Fewer pages") }
                 Text(if (pages == 1) "Single image" else "$pages pages", modifier = Modifier.width(110.dp))
                 IconButton(onClick = { pages = (pages + 1).coerceAtMost(10) }, enabled = !busy) { Icon(Icons.Rounded.Add, "More pages") }
