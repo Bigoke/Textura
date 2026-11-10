@@ -110,7 +110,9 @@ object Translator {
                 } else {
                     val lead = line.takeWhile { it.isWhitespace() }
                     out.append(lead)
-                    out.append(sentences(line.trim()).joinToString(" ") { sent -> tidy(sent, client.translate(sent).await()) })
+                    val parts = ArrayList<String>()
+                    for (sent in sentences(line.trim())) parts += tidy(sent, client.translate(sent).await())
+                    out.append(parts.joinToString(" "))
                 }
                 if (i < lines.size - 1) out.append('\n')
             }

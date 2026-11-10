@@ -98,12 +98,12 @@ fun SettingsScreen(vm: AppViewModel) {
         )
         ChipRow(SigPositions, SigPositions.first { it.first == s.signaturePos }, { it.second }) { p ->
             vm.updateSettings { it.copy(signaturePos = p.first) }
+        }
         ChipRow(SigStyles, SigStyles.first { it.first == s.signatureStyle }, { it.second }) { p ->
             vm.updateSettings { it.copy(signatureStyle = p.first) }
         }
         ChipRow(SigColors, SigColors.first { it.first == s.signatureColor }, { it.second }) { p ->
             vm.updateSettings { it.copy(signatureColor = p.first) }
-        }
         }
 
         }

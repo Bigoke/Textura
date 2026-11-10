@@ -177,12 +177,12 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
                 )
                 ChipRow(SigPositions, SigPositions.first { it.first == vm.settings.signaturePos }, { it.second }) { p ->
                     vm.updateSettings { it.copy(signaturePos = p.first) }
+                }
                 ChipRow(SigStyles, SigStyles.first { it.first == vm.settings.signatureStyle }, { it.second }) { p ->
                     vm.updateSettings { it.copy(signatureStyle = p.first) }
                 }
                 ChipRow(SigColors, SigColors.first { it.first == vm.settings.signatureColor }, { it.second }) { p ->
                     vm.updateSettings { it.copy(signatureColor = p.first) }
-                }
                 }
             }
 
