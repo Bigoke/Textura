@@ -45,7 +45,7 @@ class TipHolder {
     var y = 0f
 }
 
-data class Watermark(val text: String, val position: Int = 1, val style: Int = 0, val colorKey: Int = 0)
+data class Watermark(val text: String, val position: Int = 1, val style: Int = 0, val colorKey: Int = 0, val logoPath: String? = null)
 
 object Renderer {
     /** Every layout is computed in a 1000-unit wide design space, then scaled to the output size. */
@@ -199,7 +199,7 @@ object Renderer {
         canvas.restore() // perspective
 
         if (!transparent && doAbove) LightPainter.draw(canvas, look.light, look.lightStrength, dw, dh)
-        if (watermark != null && doAbove) WatermarkPainter.draw(canvas, watermark.text, watermark.position, dw, dh, watermark.style, watermark.colorKey)
+        if (watermark != null && doAbove) WatermarkPainter.draw(canvas, watermark.text, watermark.position, dw, dh, watermark.style, watermark.colorKey, watermark.logoPath)
     }
 
     // ---------------------------------------------------------------------------------------------

@@ -1,5 +1,7 @@
 package com.textura.app.ui
 
+import androidx.compose.material3.TextButton
+import androidx.activity.result.PickVisualMediaRequest
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -49,6 +51,21 @@ fun SettingsScreen(vm: AppViewModel) {
             val ok = json != null && vm.restoreBackup(json)
             Toast.makeText(ctx, if (ok) "Backup restored" else "That file is not a Textura backup", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            val ok = runCatching {
+                val f = java.io.File(ctx.filesDir, "logo_" + System.currentTimeMillis() + ".png")
+                ctx.contentResolver.openInputStream(uri)?.use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+                java.io.File(s.logoPath).takeIf { s.logoPath.isNotBlank() }?.delete()
+                vm.updateSettings { it.copy(logoPath = f.absolutePath) }
+            }.isSuccess
+            if (!ok) Toast.makeText(ctx, "Could not use that picture", Toast.LENGTH_SHORT).show()
+        }
+    }
+    val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) Toast.makeText(ctx, "Allow notifications to get the daily quote", Toast.LENGTH_LONG).show()
     }
 
     Column(
@@ -107,6 +124,40 @@ fun SettingsScreen(vm: AppViewModel) {
         }
 
         }
+        Group("Logo on exports") {
+        Text(
+            "Add a small logo (a PNG with a clear background works best). It is placed with your signature.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = { logoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
+                Text(if (s.logoPath.isBlank()) "Choose logo" else "Change logo")
+            }
+            if (s.logoPath.isNotBlank()) {
+                TextButton(onClick = {
+                    java.io.File(s.logoPath).delete()
+                    vm.updateSettings { it.copy(logoPath = "", signatureOn = it.signatureOn) }
+                }) { Text("Remove") }
+            }
+        }
+
+        }
+        Group("Daily quote reminder") {
+        SwitchRow("Remind me every day", s.dailyReminder) { on ->
+            if (on && android.os.Build.VERSION.SDK_INT >= 33) notifPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            vm.updateSettings { it.copy(dailyReminder = on) }
+            if (on) com.textura.app.notify.Reminder.schedule(ctx, s.dailyHour) else com.textura.app.notify.Reminder.cancel(ctx)
+        }
+        if (s.dailyReminder) {
+            val hours = listOf(6, 7, 8, 9, 12, 17, 20, 21)
+            ChipRow(hours, s.dailyHour.takeIf { it in hours } ?: 8, { String.format("%02d:00", it) }) { h ->
+                vm.updateSettings { it.copy(dailyHour = h) }
+                com.textura.app.notify.Reminder.schedule(ctx, h)
+            }
+        }
+
+        }
         Group("Translation quality") {
         Text(
             "The built-in translator works offline. For much better Afrikaans and English, paste a Google Cloud Translation API key; it is only used when you translate and stays on this phone.",
@@ -122,6 +173,7 @@ fun SettingsScreen(vm: AppViewModel) {
         )
         }
         Group("Feel") {
+        SwitchRow("Reduce motion (fewer animations)", s.reduceMotion) { on -> vm.updateSettings { it.copy(reduceMotion = on) } }
         SwitchRow("Haptic tick when swiping", s.haptics) { on -> vm.updateSettings { it.copy(haptics = on) } }
         SwitchRow("Smart order (best looks for your text first)", s.smartOrder) { on -> vm.updateSettings { it.copy(smartOrder = on) } }
 

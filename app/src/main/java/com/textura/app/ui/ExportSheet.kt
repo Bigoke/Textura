@@ -87,7 +87,7 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
     var transparent by remember { mutableStateOf(false) }
     var pages by remember { mutableIntStateOf(1) }
     var byParagraph by remember { mutableStateOf(false) }
-    var signOn by remember { mutableStateOf(vm.settings.signatureOn && vm.settings.signature.isNotBlank()) }
+    var signOn by remember { mutableStateOf(vm.settings.signatureOn && (vm.settings.signature.isNotBlank() || vm.settings.logoPath.isNotBlank())) }
     var busy by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var showVideo by remember { mutableStateOf(false) }
@@ -98,7 +98,7 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
     val paraCount = remember(vm.text, byParagraph) { if (byParagraph) vm.splitParagraphs(vm.text).size else 0 }
     val sizeText = "${(dw * scale).roundToInt()} × ${(dh * scale).roundToInt()} px" +
         if (byParagraph) " · $paraCount pages" else if (pages > 1) " · $pages pages" else ""
-    val signature = if (signOn && vm.settings.signature.isNotBlank()) Watermark(vm.settings.signature, vm.settings.signaturePos, vm.settings.signatureStyle, vm.settings.signatureColor) else null
+    val signature = if (signOn && (vm.settings.signature.isNotBlank() || vm.settings.logoPath.isNotBlank())) Watermark(vm.settings.signature, vm.settings.signaturePos, vm.settings.signatureStyle, vm.settings.signatureColor, vm.settings.logoPath.ifBlank { null }) else null
 
     fun run(share: Boolean, pkg: String? = null) {
         if (busy) return

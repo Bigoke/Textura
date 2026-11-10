@@ -35,6 +35,11 @@ data class Settings(
     val signatureStyle: Int = 0,
     val signatureColor: Int = 0,
     val googleKey: String = "",
+    val logoPath: String = "",
+    val dailyReminder: Boolean = false,
+    val dailyHour: Int = 8,
+    val tourSeen: Int = 0,
+    val reduceMotion: Boolean = false,
 )
 
 data class HistoryItem(

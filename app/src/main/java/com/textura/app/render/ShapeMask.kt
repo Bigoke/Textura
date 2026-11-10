@@ -80,6 +80,35 @@ object ShapePaths {
             val rad = min(r.width(), r.height()) * 0.18f
             addRoundRect(r, rad, rad, Path.Direction.CW)
         }
+        TextShape.Triangle -> stretch(listOf(0.5f to 0f, 1f to 1f, 0f to 1f), r)
+        TextShape.Octagon -> stretch(
+            listOf(0.3f to 0f, 0.7f to 0f, 1f to 0.3f, 1f to 0.7f, 0.7f to 1f, 0.3f to 1f, 0f to 0.7f, 0f to 0.3f), r,
+        )
+        TextShape.Cross -> stretch(
+            listOf(
+                0.33f to 0f, 0.67f to 0f, 0.67f to 0.33f, 1f to 0.33f, 1f to 0.67f, 0.67f to 0.67f,
+                0.67f to 1f, 0.33f to 1f, 0.33f to 0.67f, 0f to 0.67f, 0f to 0.33f, 0.33f to 0.33f,
+            ), r,
+        )
+        TextShape.Shield -> stretch(
+            listOf(0f to 0f, 1f to 0f, 1f to 0.5f, 0.92f to 0.72f, 0.5f to 1f, 0.08f to 0.72f, 0f to 0.5f), r,
+        )
+        TextShape.Drop -> {
+            val pts = ArrayList<Pair<Float, Float>>()
+            val n = 120
+            for (i in 0 until n) {
+                val t = 2.0 * PI * i / n
+                val x = 0.5 + 0.5 * kotlin.math.sin(t) * kotlin.math.sin(t / 2) / 0.65
+                val y = 0.5 - 0.5 * kotlin.math.cos(t)
+                pts += x.toFloat() to y.toFloat()
+            }
+            stretch(pts, r)
+        }
+        TextShape.Cloud -> Path().apply {
+            fun circ(cx: Float, cy: Float, rad: Float) = addCircle(r.left + cx * r.width(), r.top + cy * r.height(), rad * min(r.width(), r.height()), Path.Direction.CW)
+            circ(0.27f, 0.62f, 0.22f); circ(0.5f, 0.4f, 0.28f); circ(0.76f, 0.6f, 0.24f); circ(0.5f, 0.64f, 0.26f)
+            addRect(r.left + 0.2f * r.width(), r.top + 0.6f * r.height(), r.left + 0.82f * r.width(), r.top + 0.88f * r.height(), Path.Direction.CW)
+        }
         TextShape.Arch -> Path().apply {
             val d = r.width()
             val topArc = RectF(r.left, r.top, r.right, r.top + d)

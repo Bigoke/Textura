@@ -49,6 +49,12 @@ enum class TextShape(val label: String) {
     Hexagon("Hexagon"),
     Bubble("Bubble"),
     Arch("Arch"),
+    Triangle("Triangle"),
+    Octagon("Octagon"),
+    Cross("Cross"),
+    Shield("Shield"),
+    Drop("Drop"),
+    Cloud("Cloud"),
 }
 
 enum class Category(val label: String) {
@@ -58,6 +64,7 @@ enum class Category(val label: String) {
     Art("Art"),
     ThreeD("3D"),
     Shapes("Shapes"),
+    Occasion("Occasion"),
 }
 
 enum class BgKind { Solid, Gradient, Image }

@@ -61,10 +61,35 @@ class MainActivity : ComponentActivity() {
         com.textura.app.model.DeviceScreen.h = maxOf(dm.widthPixels, dm.heightPixels)
         enableEdgeToEdge()
         handleShare(intent)
+        if (vm.settings.dailyReminder) com.textura.app.notify.Reminder.schedule(this, vm.settings.dailyHour)
         setContent {
-            TexturaTheme(vm.settings.theme) {
-                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    AppNav(vm)
+            val systemCalm = android.provider.Settings.Global.getFloat(contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+            androidx.compose.runtime.CompositionLocalProvider(com.textura.app.ui.LocalReduceMotion provides (vm.settings.reduceMotion || systemCalm)) {
+                TexturaTheme(vm.settings.theme) {
+                    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        AppNav(vm)
+                        if (vm.settings.tourSeen < 2) {
+                            androidx.compose.material3.AlertDialog(
+                                onDismissRequest = { vm.updateSettings { it.copy(tourSeen = 2) } },
+                                title = { androidx.compose.material3.Text("Welcome to Textura") },
+                                text = {
+                                    androidx.compose.material3.Text(
+                                        "• Paste or type text, or read it from a photo.\n" +
+                                            "• Swipe through looks and tap one to edit it.\n" +
+                                            "• The editor has tabs for font, background, frame and more; tap a section to open it.\n" +
+                                            "• Save project keeps a design to continue later.\n" +
+                                            "• Export gives images, a carousel, video and GIF.\n" +
+                                            "• Settings has your signature, logo, daily quote and translation key.",
+                                    )
+                                },
+                                confirmButton = {
+                                    androidx.compose.material3.TextButton(onClick = { vm.updateSettings { it.copy(tourSeen = 2) } }) {
+                                        androidx.compose.material3.Text("Let's go")
+                                    }
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -134,23 +159,24 @@ private fun AppNav(vm: AppViewModel) {
         },
     ) { padding ->
         val tabRoutes = Tabs.map { it.route }
+        val calm = com.textura.app.ui.LocalReduceMotion.current
         val ease = FastOutSlowInEasing
         NavHost(
             nav,
             startDestination = "home",
             modifier = Modifier.padding(padding).imePadding(),
             enterTransition = {
-                if (initialState.destination.route in tabRoutes && targetState.destination.route in tabRoutes)
+                if (calm) fadeIn(tween(120)) else if (initialState.destination.route in tabRoutes && targetState.destination.route in tabRoutes)
                     fadeIn(tween(240, delayMillis = 70)) + scaleIn(tween(300, easing = ease), initialScale = 0.97f)
                 else slideInHorizontally(tween(340, easing = ease)) { it / 7 } + fadeIn(tween(300))
             },
             exitTransition = {
-                if (initialState.destination.route in tabRoutes && targetState.destination.route in tabRoutes)
+                if (calm) fadeOut(tween(90)) else if (initialState.destination.route in tabRoutes && targetState.destination.route in tabRoutes)
                     fadeOut(tween(110))
                 else slideOutHorizontally(tween(340, easing = ease)) { -it / 9 } + fadeOut(tween(220))
             },
-            popEnterTransition = { slideInHorizontally(tween(340, easing = ease)) { -it / 9 } + fadeIn(tween(300)) },
-            popExitTransition = { slideOutHorizontally(tween(340, easing = ease)) { it / 7 } + fadeOut(tween(240)) },
+            popEnterTransition = { if (calm) fadeIn(tween(120)) else slideInHorizontally(tween(340, easing = ease)) { -it / 9 } + fadeIn(tween(300)) },
+            popExitTransition = { if (calm) fadeOut(tween(90)) else slideOutHorizontally(tween(340, easing = ease)) { it / 7 } + fadeOut(tween(240)) },
         ) {
             composable("home") {
                 HomeScreen(

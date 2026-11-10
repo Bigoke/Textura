@@ -11,6 +11,8 @@
     </queries>
 
         <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"
@@ -47,6 +49,12 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/textura_widget_info" />
+        </receiver>
+
+        <receiver android:name=".notify.ReminderReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
         </receiver>
 
         <provider

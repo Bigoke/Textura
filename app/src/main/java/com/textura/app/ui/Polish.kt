@@ -90,11 +90,14 @@ fun Group(title: String, startOpen: Boolean = false, stateKey: String = title, c
     }
 }
 
+val LocalReduceMotion = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 /** Gives a tappable thing a soft press: it shrinks slightly and springs back. Does not interfere with clicks. */
 fun Modifier.pressScale(scaleDown: Float = 0.95f): Modifier = composed {
     var pressed by remember { mutableStateOf(false) }
+    val calm = LocalReduceMotion.current
     val s by animateFloatAsState(
-        if (pressed) scaleDown else 1f,
+        if (pressed && !calm) scaleDown else 1f,
         spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMedium),
         label = "press",
     )
@@ -113,8 +116,10 @@ fun Modifier.pressScale(scaleDown: Float = 0.95f): Modifier = composed {
 /** Fades and lifts its content into place, one after another by [index], the first time it appears. */
 @Composable
 fun FadeInItem(index: Int, content: @Composable () -> Unit) {
-    val a = remember { Animatable(0f) }
+    val reduce = LocalReduceMotion.current
+    val a = remember { Animatable(if (reduce) 1f else 0f) }
     LaunchedEffect(Unit) {
+        if (reduce) return@LaunchedEffect
         delay(index * 55L)
         a.animateTo(1f, tween(420, easing = FastOutSlowInEasing))
     }

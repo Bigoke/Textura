@@ -89,11 +89,45 @@ object LightPainter {
     }
 }
 
+/** Keeps the decoded logo so it is not read from disk for every frame. */
+object LogoCache {
+    private var path: String? = null
+    private var stamp = 0L
+    private var bmp: android.graphics.Bitmap? = null
+
+    @Synchronized
+    fun get(p: String): android.graphics.Bitmap? {
+        val f = java.io.File(p)
+        if (!f.exists()) return null
+        if (p != path || f.lastModified() != stamp) {
+            val b = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeFile(p, b)
+            var sample = 1
+            while (b.outWidth / sample > 700) sample *= 2
+            bmp = android.graphics.BitmapFactory.decodeFile(p, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+            path = p; stamp = f.lastModified()
+        }
+        return bmp
+    }
+}
+
 /** Optional signature drawn at the bottom. [style]: 0 Elegant, 1 Script, 2 Badge, 3 Plain. [colorKey]: 0 white, 1 black, 2 gold. */
 object WatermarkPainter {
-    fun draw(canvas: Canvas, text: String, position: Int, w: Float, h: Float, style: Int = 0, colorKey: Int = 0) {
+    fun draw(canvas: Canvas, text: String, position: Int, w: Float, h: Float, style: Int = 0, colorKey: Int = 0, logoPath: String? = null) {
         val label = text.trim()
+        val logo = logoPath?.takeIf { it.isNotBlank() }?.let { LogoCache.get(it) }
+        var lift = 0f
+        if (logo != null) {
+            val lh = w * 0.075f
+            val lw = lh * logo.width / logo.height
+            val lm = w * 0.05f
+            val lx = when (position) { 0 -> lm; 2 -> w - lm - lw; else -> (w - lw) / 2f }
+            val ly = h - lm * 0.8f - lh
+            canvas.drawBitmap(logo, android.graphics.Rect(0, 0, logo.width, logo.height), RectF(lx, ly, lx + lw, ly + lh), Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+            lift = lh + w * 0.012f
+        }
         if (label.isEmpty()) return
+        val h = h - lift
         val ink = when (colorKey) { 1 -> Color.rgb(24, 24, 28); 2 -> Color.rgb(214, 174, 84); else -> Color.WHITE }
         val dark = colorKey == 1
         val m = w * 0.05f

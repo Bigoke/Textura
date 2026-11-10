@@ -258,6 +258,59 @@ object Catalogue {
             randomSize = 0.7f, randomSeed = 5, bg = grad(160f, 0x2B1B17, 0x5C3A2E),
         ),
 
+        // ---------------------------------------------------------------- OCCASION
+        Look(
+            id = "occ_birthday", name = "Birthday", category = Category.Occasion,
+            fontId = "lobster", textColor = c(0xFFFFFF), align = Align.Center, margin = 0.1f,
+            bg = grad(150f, 0xFF6FB5, 0xFFB347, 0xFFE66D),
+            frame = FrameStyle.Stars, frameColor = c(0xFFFFFF), frameInset = 0.35f,
+        ),
+        Look(
+            id = "occ_wedding", name = "Wedding", category = Category.Occasion,
+            fontId = "playfair", textColor = c(0x5B4636), align = Align.Center, margin = 0.12f,
+            bg = solid(0xFBF6EE), frame = FrameStyle.ArtDeco, frameColor = c(0xC9A24B), frameColor2 = c(0xC9A24B),
+        ),
+        Look(
+            id = "occ_memorial", name = "In memory", category = Category.Occasion,
+            fontId = "cinzel", textColor = c(0xEDEDED), align = Align.Center, margin = 0.12f,
+            bg = grad(180f, 0x1B1F24, 0x0B0D10), frame = FrameStyle.Double, frameColor = c(0xB8B8B8), frameThickness = 0.2f,
+        ),
+        Look(
+            id = "occ_faith", name = "Faith", category = Category.Occasion,
+            fontId = "playfair", textColor = c(0xFFF8E7), textColor2 = c(0xF2C14E), align = Align.Center, margin = 0.11f,
+            bg = grad(180f, 0x1E3A5F, 0x4A7FB5, 0xF2C14E), light = LightType.Window, lightStrength = 0.35f,
+        ),
+        Look(
+            id = "occ_baby", name = "New baby", category = Category.Occasion,
+            fontId = "pacifico", textColor = c(0x5A6B8C), align = Align.Center, margin = 0.1f,
+            bg = grad(160f, 0xDDEBFF, 0xFFE3EE), frame = FrameStyle.Scallop, frameColor = c(0xFFFFFF), frameThickness = 0.5f,
+        ),
+        Look(
+            id = "occ_grad", name = "Graduation", category = Category.Occasion,
+            fontId = "abril_fatface", textColor = c(0xF5E6B3), align = Align.Center, margin = 0.1f,
+            bg = solid(0x14213D), frame = FrameStyle.Vintage, frameColor = c(0xF5E6B3), frameColor2 = c(0xF5E6B3),
+        ),
+        Look(
+            id = "occ_christmas", name = "Christmas", category = Category.Occasion,
+            fontId = "lobster", textColor = c(0xFFFFFF), align = Align.Center, margin = 0.1f,
+            bg = grad(160f, 0x0F5132, 0x1E7B4F), frame = FrameStyle.Checker, frameColor = c(0xC8102E), frameColor2 = c(0xFFFFFF),
+        ),
+        Look(
+            id = "occ_valentine", name = "Valentine", category = Category.Occasion,
+            fontId = "dancing_script", textColor = c(0xFFFFFF), align = Align.Center, margin = 0.1f,
+            bg = grad(150f, 0xB5179E, 0xE5383B), frame = FrameStyle.Hearts, frameColor = c(0xFFD6E0),
+        ),
+        Look(
+            id = "occ_goodmorning", name = "Good morning", category = Category.Occasion,
+            fontId = "poppins", textColor = c(0x5A3E1B), align = Align.Center, margin = 0.1f,
+            bg = grad(180f, 0xFFF1B8, 0xFFC971), frame = FrameStyle.Rounded, frameColor = c(0xFFFFFF),
+        ),
+        Look(
+            id = "occ_goodnight", name = "Good night", category = Category.Occasion,
+            fontId = "poppins", textColor = c(0xE9E7FF), align = Align.Center, margin = 0.1f,
+            bg = grad(180f, 0x0B1026, 0x2B2F77), frame = FrameStyle.Thin, frameColor = c(0x9FA8FF),
+        ),
+
         // ---------------------------------------------------------------- 3D
         Look(
             id = "d3_block_gold", name = "Gold blocks", category = Category.ThreeD,
