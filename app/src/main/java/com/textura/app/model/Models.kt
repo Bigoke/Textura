@@ -6,10 +6,16 @@ fun c(rgb: Int): Int = rgb or -0x1000000
 /** Colour with explicit alpha (0..255) from 0xRRGGBB. */
 fun ca(alpha: Int, rgb: Int): Int = (alpha shl 24) or (rgb and 0xFFFFFF)
 
+/** The phone's own screen size in pixels (portrait), filled in when the app starts. */
+object DeviceScreen {
+    var w: Int = 1080
+    var h: Int = 2400
+}
+
 enum class CanvasShape(
     val label: String,
-    val wr: Int,
-    val hr: Int,
+    private val wRatio: Int,
+    private val hRatio: Int,
     val forceJustify: Boolean = false,
     val marginScale: Float = 1f,
 ) {
@@ -22,7 +28,12 @@ enum class CanvasShape(
     Wide("Wide 16:9", 16, 9),
     Pin("Pinterest 2:3", 2, 3),
     A4("A4 page", 210, 297),
-    Cover("Cover banner", 205, 78);
+    Cover("Cover banner", 205, 78),
+    Screen("Phone screen", 0, 0),
+    ScreenWide("Phone landscape", 0, 0);
+
+    val wr: Int get() = when (this) { Screen -> DeviceScreen.w; ScreenWide -> DeviceScreen.h; else -> wRatio }
+    val hr: Int get() = when (this) { Screen -> DeviceScreen.h; ScreenWide -> DeviceScreen.w; else -> hRatio }
 
     val ratio: Float get() = wr.toFloat() / hr.toFloat()
 }

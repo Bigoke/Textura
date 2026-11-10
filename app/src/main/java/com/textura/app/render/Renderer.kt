@@ -155,6 +155,13 @@ object Renderer {
             sheet.bottom - m - pad,
         )
 
+        FramePainter.reserve(look.frame ?: com.textura.app.model.FrameStyle.None, look.frameThickness, look.frameInset, dw, dh).let { fr ->
+            content.left = max(content.left, fr.left)
+            content.top = max(content.top, fr.top)
+            content.right = min(content.right, dw - fr.right)
+            content.bottom = min(content.bottom, dh - fr.bottom)
+        }
+
         val mask = if (look.textShape != TextShape.Rect) ShapeMask.get(look.textShape, content) else null
         val result = holder?.result ?: TextEngine.layout(text.ifBlank { "Your text\nappears here" }, look, tfOf, content, shape, mask)
             .also { holder?.result = it; holder?.content = content }

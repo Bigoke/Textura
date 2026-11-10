@@ -62,6 +62,57 @@ object FramePainter {
         addRect(inner, Path.Direction.CW)
     }
 
+    /** How far in from each canvas edge the frame reaches (plus a small gap), so text can stay clear of it. */
+    fun reserve(style: FrameStyle, thick: Float, inset: Float, w: Float, h: Float): RectF {
+        if (style == FrameStyle.None) return RectF()
+        val u = w / 1000f
+        val th = (3f + thick * 20f) * u
+        val ins = (12f + inset * 70f) * u
+        val m = min(w, h)
+        val gap = 16f * u
+        var all = when (style) {
+            FrameStyle.None -> 0f
+            FrameStyle.Thin -> ins + th * 0.3f
+            FrameStyle.Bold -> ins + th * 1f
+            FrameStyle.Double -> ins + th * 2.8f
+            FrameStyle.Triple -> ins + th * 4.2f
+            FrameStyle.Rounded -> ins + th * 0.6f
+            FrameStyle.RoundedDouble -> ins + th * 3.1f
+            FrameStyle.Dashed -> ins + th * 0.5f
+            FrameStyle.Dotted -> ins + th * 0.8f
+            FrameStyle.Stitched -> ins + th * 3f
+            FrameStyle.Brackets -> ins + th * 1f
+            FrameStyle.Notched -> ins + th * 1f + 12f * u
+            FrameStyle.Scallop -> ins + (38f * u + th * 1.5f) * 0.55f + th * 0.4f
+            FrameStyle.Zigzag -> ins + (26f * u + th) * 0.45f + th * 0.4f
+            FrameStyle.Ticket -> ins + (34f * u + th * 2f) + th * 3.4f
+            FrameStyle.Stamp -> th * 3.4f + 14f * u
+            FrameStyle.Polaroid -> th * 3f + 18f * u
+            FrameStyle.Mat -> th * 3.6f + 20f * u + th * 0.3f
+            FrameStyle.Bevel -> th * 3f + 16f * u
+            FrameStyle.Film -> 0f
+            FrameStyle.Checker -> 18f * u + th
+            FrameStyle.ArtDeco -> ins + th * 3.9f + 20f * u
+            FrameStyle.Vintage -> ins + th * 3.2f
+            FrameStyle.Neon -> ins + th * 2.6f
+            FrameStyle.Shadow -> ins + th * 2.4f
+            FrameStyle.Sketch -> ins + th * 2f
+            FrameStyle.Floral -> ins + m * 0.06f
+            FrameStyle.Hearts -> ins + (7f * u + th * 0.9f) * 1.5f
+            FrameStyle.Stars -> ins + (8f * u + th) * 1.2f
+            FrameStyle.PhotoCorners -> ins + m * 0.03f
+            FrameStyle.Tape -> ins + m * 0.035f
+        }
+        all += gap
+        val r = RectF(all, all, all, all)
+        when (style) {
+            FrameStyle.Polaroid -> r.bottom = (th * 3f + 18f * u) * 3.6f + gap
+            FrameStyle.Film -> { val b = 64f * u + th * 2 + gap; r.left = b; r.right = b; r.top = gap; r.bottom = gap }
+            else -> {}
+        }
+        return r
+    }
+
     fun draw(c: Canvas, style: FrameStyle, color: Int, color2: Int, thick: Float, inset: Float, w: Float, h: Float) {
         if (style == FrameStyle.None) return
         val u = w / 1000f

@@ -56,6 +56,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val dm = resources.displayMetrics
+        com.textura.app.model.DeviceScreen.w = minOf(dm.widthPixels, dm.heightPixels)
+        com.textura.app.model.DeviceScreen.h = maxOf(dm.widthPixels, dm.heightPixels)
         enableEdgeToEdge()
         handleShare(intent)
         setContent {
