@@ -83,6 +83,9 @@ class Store(context: Context) {
 
     fun saveUserFonts(f: List<UserFont>) = write("userfonts", f)
 
+    fun loadUserWords(): Set<String> = read("userwords", object : TypeToken<List<String>>() {}, emptyList<String>()).toSet()
+    fun saveUserWords(w: Set<String>) = write("userwords", w.toList())
+
     fun loadHand(): HandData = read("handwriting", object : TypeToken<HandData>() {}, HandData())
     fun saveHand(h: HandData) = write("handwriting", h)
 

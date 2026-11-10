@@ -67,6 +67,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var shape by mutableStateOf(settings.defaultShape); private set
     var favorites by mutableStateOf(store.loadFavorites()); private set
     var custom by mutableStateOf(store.loadCustom()); private set
+
+    /** Words the user added to the spelling dictionary, and findings ignored during this session. */
+    var userWords by mutableStateOf(store.loadUserWords()); private set
+    var ignoredIssues by mutableStateOf(setOf<String>()); private set
+
+    fun addUserWord(w: String) {
+        userWords = userWords + w.lowercase()
+        store.saveUserWords(userWords)
+    }
+
+    fun clearUserWords() {
+        userWords = emptySet()
+        store.saveUserWords(userWords)
+    }
+
+    fun ignoreIssue(key: String) { ignoredIssues = ignoredIssues + key }
     var history by mutableStateOf(store.loadHistory()); private set
 
     /** The look the user is editing / has edited; shown as the first page of the browser. */

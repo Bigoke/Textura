@@ -77,6 +77,7 @@ fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryIt
     var scanDialog by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
     var cameraUri by remember { mutableStateOf<Uri?>(null) }
+    var tools by remember { mutableStateOf<ToolsRequest?>(null) }
 
     fun runOcr(uri: Uri) {
         scanning = true
@@ -89,8 +90,7 @@ fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryIt
                     if (found.isBlank()) {
                         Toast.makeText(ctx, "No text found in that photo", Toast.LENGTH_SHORT).show()
                     } else {
-                        vm.useScannedText(found)
-                        Toast.makeText(ctx, "Found ${found.length} characters", Toast.LENGTH_SHORT).show()
+                        tools = ToolsRequest(found, true, 0)
                     }
                 }
                 .addOnFailureListener {
@@ -176,8 +176,13 @@ fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryIt
                     if (scanning) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                     else Icon(Icons.Rounded.CameraAlt, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Scan")
+                    Text("Photo")
                 }
+            }
+
+            Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { tools = ToolsRequest(vm.text, false, 0) }, enabled = plain.isNotBlank()) { Text("Translate") }
+                OutlinedButton(onClick = { tools = ToolsRequest(vm.text, false, 1) }, enabled = plain.isNotBlank()) { Text("Spelling & grammar") }
             }
 
             SectionTitle("Shape")
@@ -193,11 +198,13 @@ fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryIt
             }
         }
 
+        tools?.let { req -> TextToolsSheet(vm, req, onDismiss = { tools = null }) }
+
         if (scanDialog) {
             AlertDialog(
                 onDismissRequest = { scanDialog = false },
-                title = { Text("Scan text from a photo") },
-                text = { Text("Pick a photo of a page, sign or note, or take one now. The text is read on your device.") },
+                title = { Text("Import text from a photo") },
+                text = { Text("Pick a photo of a page, sign or note, or take one now. The text is read on your device. You can then fix it, translate it between Afrikaans and English, and check the spelling.") },
                 confirmButton = {
                     TextButton(onClick = {
                         scanDialog = false

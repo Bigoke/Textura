@@ -92,6 +92,7 @@ fun TextTab(vm: AppViewModel, look: Look) {
     }
     var colorDialog by remember { mutableStateOf(false) }
     var fontMenu by remember { mutableStateOf(false) }
+    var tools by remember { mutableStateOf<ToolsRequest?>(null) }
 
     fun wrapSelection(open: String, close: String) {
         val sel = tfv.selection
@@ -136,6 +137,8 @@ fun TextTab(vm: AppViewModel, look: Look) {
         AssistChip(onClick = { wrapSelection("[big]", "[/big]") }, label = { Text("Big") })
         AssistChip(onClick = { wrapSelection("[huge]", "[/huge]") }, label = { Text("Huge") })
         AssistChip(onClick = { wrapSelection("[small]", "[/small]") }, label = { Text("Small") })
+        AssistChip(onClick = { tools = ToolsRequest(vm.text, false, 1) }, label = { Text("Spelling & grammar") })
+        AssistChip(onClick = { tools = ToolsRequest(vm.text, false, 0) }, label = { Text("Translate") })
         AssistChip(onClick = { colorDialog = true }, label = { Text("Colour") })
         AssistChip(onClick = { fontMenu = true }, label = { Text("Font") })
         AssistChip(onClick = {
@@ -144,6 +147,7 @@ fun TextTab(vm: AppViewModel, look: Look) {
             vm.updateText(cleaned)
         }, label = { Text("Clear formatting") })
     }
+    tools?.let { req -> TextToolsSheet(vm, req, onDismiss = { tools = null }) }
     DropdownMenu(expanded = fontMenu, onDismissRequest = { fontMenu = false }) {
         Fonts.all.forEach { f ->
             DropdownMenuItem(

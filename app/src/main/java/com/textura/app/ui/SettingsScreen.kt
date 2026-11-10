@@ -98,6 +98,17 @@ fun SettingsScreen(vm: AppViewModel) {
         SwitchRow("Haptic tick when swiping", s.haptics) { on -> vm.updateSettings { it.copy(haptics = on) } }
         SwitchRow("Smart order (best looks for your text first)", s.smartOrder) { on -> vm.updateSettings { it.copy(smartOrder = on) } }
 
+        SectionTitle("Spelling & grammar")
+        Text(
+            "Checks Afrikaans and English. Spelling and the basic grammar rules run on your phone. Words you add while checking are kept in your own dictionary.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("My dictionary: ${vm.userWords.size} words", style = MaterialTheme.typography.bodyMedium)
+            OutlinedButton(onClick = { vm.clearUserWords() }, enabled = vm.userWords.isNotEmpty()) { Text("Clear") }
+        }
+
         SectionTitle("Backup")
         Text(
             "Saves your templates, favorites and settings to a file. Choose Google Drive in the file picker to keep it in the cloud. Background photos are not included.",
@@ -118,7 +129,7 @@ fun SettingsScreen(vm: AppViewModel) {
 
         SectionTitle("About")
         Text(
-            "Textura 1.2\nEverything is created on your device. Fonts are bundled open-source families (SIL Open Font License / Apache 2.0) from Google Fonts, so the app works fully offline.",
+            "Textura 1.3\nEverything is created on your device. Fonts are bundled open-source families (SIL Open Font License / Apache 2.0) from Google Fonts. Afrikaans spelling uses the af_ZA dictionary (Translate.org.za, LGPL 2.1); English uses SCOWL-based word lists. Translation uses Google ML Kit; its language data downloads once.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth(),
