@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -70,6 +72,7 @@ import com.textura.app.render.Markup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryItem) -> Unit) {
     val clipboard = LocalClipboardManager.current
@@ -154,7 +157,17 @@ fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryIt
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                Modifier.padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                OutlinedButton(onClick = { scanDialog = true }, enabled = !scanning) {
+                    if (scanning) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Icon(Icons.Rounded.CameraAlt, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Photo to text")
+                }
                 OutlinedButton(onClick = {
                     clipboard.getText()?.text?.takeIf { it.isNotBlank() }?.let(vm::updateText)
                 }) {
@@ -172,15 +185,6 @@ fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryIt
                     Spacer(Modifier.width(6.dp))
                     Text("Sample")
                 }
-                OutlinedButton(onClick = { scanDialog = true }, enabled = !scanning) {
-                    if (scanning) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    else Icon(Icons.Rounded.CameraAlt, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Photo")
-                }
-            }
-
-            Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { tools = ToolsRequest(vm.text, false, 0) }, enabled = plain.isNotBlank()) { Text("Translate") }
                 OutlinedButton(onClick = { tools = ToolsRequest(vm.text, false, 1) }, enabled = plain.isNotBlank()) { Text("Spelling & grammar") }
             }
