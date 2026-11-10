@@ -161,7 +161,7 @@ fun TextToolsSheet(vm: AppViewModel, request: ToolsRequest, onDismiss: () -> Uni
                         onClick = {
                             busy = true; error = null; result = null
                             scope.launch {
-                                val r = Translator.translate(plainWorking, source, target) { status = it }
+                                val r = Translator.translate(plainWorking, source, target, vm.settings.googleKey) { status = it }
                                 busy = false
                                 when (r) {
                                     is Translator.Outcome.Ok -> result = r.text

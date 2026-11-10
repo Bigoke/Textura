@@ -45,7 +45,7 @@ class TipHolder {
     var y = 0f
 }
 
-data class Watermark(val text: String, val position: Int = 1)
+data class Watermark(val text: String, val position: Int = 1, val style: Int = 0, val colorKey: Int = 0)
 
 object Renderer {
     /** Every layout is computed in a 1000-unit wide design space, then scaled to the output size. */
@@ -185,11 +185,14 @@ object Renderer {
 
         canvas.restore() // sheet
 
-        if (doAbove) StickerPainter.draw(canvas, look.stickers, dw, dh, tfOf)
+        if (doAbove) {
+            FramePainter.draw(canvas, look.frame ?: com.textura.app.model.FrameStyle.None, look.frameColor, look.frameColor2, look.frameThickness, look.frameInset, dw, dh)
+            StickerPainter.draw(canvas, look.stickers, dw, dh, tfOf)
+        }
         canvas.restore() // perspective
 
         if (!transparent && doAbove) LightPainter.draw(canvas, look.light, look.lightStrength, dw, dh)
-        if (watermark != null && doAbove) WatermarkPainter.draw(canvas, watermark.text, watermark.position, dw, dh)
+        if (watermark != null && doAbove) WatermarkPainter.draw(canvas, watermark.text, watermark.position, dw, dh, watermark.style, watermark.colorKey)
     }
 
     // ---------------------------------------------------------------------------------------------

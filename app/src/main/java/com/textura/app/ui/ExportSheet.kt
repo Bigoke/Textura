@@ -61,6 +61,8 @@ enum class ExportMode { Save, Share }
 
 private val Resolutions = listOf(1080 to "HD", 2048 to "2K", 3840 to "4K")
 private val SigPositions = listOf(0 to "Left", 1 to "Centre", 2 to "Right")
+private val SigStyles = listOf(0 to "Elegant", 1 to "Script", 2 to "Badge", 3 to "Plain")
+private val SigColors = listOf(0 to "White", 1 to "Black", 2 to "Gold")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,7 +84,7 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
     val scale = longEdge / max(dw, dh)
     val sizeText = "${(dw * scale).roundToInt()} × ${(dh * scale).roundToInt()} px" +
         if (pages > 1) " · $pages pages" else ""
-    val signature = if (signOn && vm.settings.signature.isNotBlank()) Watermark(vm.settings.signature, vm.settings.signaturePos) else null
+    val signature = if (signOn && vm.settings.signature.isNotBlank()) Watermark(vm.settings.signature, vm.settings.signaturePos, vm.settings.signatureStyle, vm.settings.signatureColor) else null
 
     fun run(share: Boolean, pkg: String? = null) {
         if (busy) return
@@ -175,6 +177,12 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
                 )
                 ChipRow(SigPositions, SigPositions.first { it.first == vm.settings.signaturePos }, { it.second }) { p ->
                     vm.updateSettings { it.copy(signaturePos = p.first) }
+                ChipRow(SigStyles, SigStyles.first { it.first == vm.settings.signatureStyle }, { it.second }) { p ->
+                    vm.updateSettings { it.copy(signatureStyle = p.first) }
+                }
+                ChipRow(SigColors, SigColors.first { it.first == vm.settings.signatureColor }, { it.second }) { p ->
+                    vm.updateSettings { it.copy(signatureColor = p.first) }
+                }
                 }
             }
 

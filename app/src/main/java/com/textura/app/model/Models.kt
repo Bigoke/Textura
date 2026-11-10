@@ -71,6 +71,15 @@ enum class PaperType(val label: String, val leftPad: Float = 0f, val pad: Float 
     Glass("Glass card"),
 }
 
+enum class FrameStyle(val label: String) {
+    None("None"), Thin("Thin line"), Bold("Bold line"), Double("Double"), Triple("Triple"),
+    Rounded("Rounded"), RoundedDouble("Soft double"), Dashed("Dashed"), Dotted("Dotted"), Stitched("Stitched"),
+    Brackets("Corner brackets"), Notched("Cut corners"), Scallop("Scallop"), Zigzag("Zigzag"), Ticket("Ticket"),
+    Stamp("Postage stamp"), Polaroid("Polaroid"), Mat("Gallery mat"), Bevel("Metal bevel"), Film("Film strip"),
+    Checker("Checkered"), ArtDeco("Art deco"), Vintage("Vintage"), Neon("Neon glow"), Shadow("Offset shadow"),
+    Sketch("Hand drawn"), Floral("Floral corners"), Hearts("Hearts"), Stars("Stars"), PhotoCorners("Photo corners"), Tape("Washi tape"),
+}
+
 enum class StickerType(val label: String, val symbol: String) {
     QuoteOpen("Open quote", "“"),
     QuoteClose("Close quote", "”"),
@@ -180,5 +189,12 @@ data class Look(
     val lightStrength: Float = 0.5f,
 
     val stickers: List<Sticker> = emptyList(),
+
+    // frame around the whole picture
+    val frame: FrameStyle = FrameStyle.None,
+    val frameColor: Int = c(0xFFFFFF),
+    val frameColor2: Int = c(0x1A1A1A),
+    val frameThickness: Float = 0.4f,
+    val frameInset: Float = 0.25f,
     val bg: Background = Background(),
 )

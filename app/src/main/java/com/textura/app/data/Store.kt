@@ -32,6 +32,9 @@ data class Settings(
     val signature: String = "",
     val signatureOn: Boolean = false,
     val signaturePos: Int = 1,
+    val signatureStyle: Int = 0,
+    val signatureColor: Int = 0,
+    val googleKey: String = "",
 )
 
 data class HistoryItem(

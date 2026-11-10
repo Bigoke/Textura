@@ -65,8 +65,8 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.math.hypot
 
-private val TabTitles = listOf("Text", "Font", "Background", "Depth", "Layout", "Paper", "Scene", "Stickers")
-private const val STICKER_TAB = 7
+private val TabTitles = listOf("Text", "Font", "Background", "Depth", "Layout", "Paper", "Scene", "Frame", "Stickers")
+private const val STICKER_TAB = 8
 
 @Composable
 fun EditorScreen(vm: AppViewModel, onDone: () -> Unit, onHandwriting: () -> Unit = {}) {
@@ -258,6 +258,7 @@ fun EditorScreen(vm: AppViewModel, onDone: () -> Unit, onHandwriting: () -> Unit
                         4 -> LayoutTab(vm, look)
                         5 -> PaperTab(vm, look)
                         6 -> SceneTab(vm, look)
+                        7 -> FrameTab(vm, look)
                         else -> StickersTab(vm, look, selectedSticker) { selectedSticker = it }
                     } } }
                     Spacer(Modifier.height(18.dp))

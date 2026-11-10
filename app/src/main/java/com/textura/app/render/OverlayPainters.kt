@@ -89,29 +89,75 @@ object LightPainter {
     }
 }
 
-/** Optional signature drawn in a corner or centre at the bottom. */
+/** Optional signature drawn at the bottom. [style]: 0 Elegant, 1 Script, 2 Badge, 3 Plain. [colorKey]: 0 white, 1 black, 2 gold. */
 object WatermarkPainter {
-    fun draw(canvas: Canvas, text: String, position: Int, w: Float, h: Float) {
-        if (text.isBlank()) return
-        val size = w * 0.03f
+    fun draw(canvas: Canvas, text: String, position: Int, w: Float, h: Float, style: Int = 0, colorKey: Int = 0) {
+        val label = text.trim()
+        if (label.isEmpty()) return
+        val ink = when (colorKey) { 1 -> Color.rgb(24, 24, 28); 2 -> Color.rgb(214, 174, 84); else -> Color.WHITE }
+        val dark = colorKey == 1
+        val m = w * 0.05f
+        val base = h - m * 0.95f
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = size
-            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.ITALIC)
-            color = Color.argb(215, 255, 255, 255)
-            setShadowLayer(size * 0.22f, 0f, size * 0.05f, Color.argb(190, 0, 0, 0))
-            textAlign = when (position) {
-                0 -> Paint.Align.LEFT
-                2 -> Paint.Align.RIGHT
-                else -> Paint.Align.CENTER
+            color = ink
+            textAlign = Paint.Align.LEFT
+            if (!dark) setShadowLayer(w * 0.004f, 0f, w * 0.0015f, Color.argb(120, 0, 0, 0))
+        }
+        when (style) {
+            1 -> { // script
+                paint.typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC)
+                paint.textSize = w * 0.04f
+                paint.alpha = 235
+                val tw = paint.measureText(label)
+                canvas.drawText(label, anchorX(position, w, m, tw), base, paint)
+            }
+            2 -> { // badge
+                paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                paint.textSize = w * 0.024f
+                paint.letterSpacing = 0.08f
+                paint.clearShadowLayer()
+                val tw = paint.measureText(label)
+                val padX = w * 0.026f
+                val padY = w * 0.014f
+                val bw = tw + padX * 2
+                val bh = paint.textSize + padY * 2
+                val left = anchorX(position, w, m, bw)
+                val rect = RectF(left, base - paint.textSize - padY * 0.2f, left + bw, base - paint.textSize - padY * 0.2f + bh)
+                val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = if (dark) Color.argb(170, 255, 255, 255) else Color.argb(120, 0, 0, 0) }
+                canvas.drawRoundRect(rect, bh / 2f, bh / 2f, bg)
+                canvas.drawText(label, left + padX, rect.centerY() + paint.textSize * 0.35f, paint)
+            }
+            3 -> { // plain
+                paint.typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+                paint.textSize = w * 0.026f
+                paint.alpha = 220
+                val tw = paint.measureText(label)
+                canvas.drawText(label, anchorX(position, w, m, tw), base, paint)
+            }
+            else -> { // elegant: spaced capitals with a fine rule
+                paint.typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+                paint.textSize = w * 0.021f
+                paint.letterSpacing = 0.3f
+                paint.alpha = 235
+                val shown = label.uppercase()
+                val tw = paint.measureText(shown)
+                val x = anchorX(position, w, m, tw)
+                canvas.drawText(shown, x, base, paint)
+                val rule = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = ink; alpha = 170; strokeWidth = w * 0.0016f; strokeCap = Paint.Cap.ROUND
+                }
+                val ry = base - paint.textSize * 1.55f
+                val len = minOf(tw, w * 0.12f)
+                val rx = when (position) { 0 -> x; 2 -> x + tw - len; else -> x + (tw - len) / 2f }
+                canvas.drawLine(rx, ry, rx + len, ry, rule)
             }
         }
-        val m = w * 0.04f
-        val x = when (position) {
-            0 -> m
-            2 -> w - m
-            else -> w / 2f
-        }
-        canvas.drawText(text, x, h - m * 0.7f, paint)
+    }
+
+    private fun anchorX(position: Int, w: Float, m: Float, width: Float): Float = when (position) {
+        0 -> m
+        2 -> w - m - width
+        else -> (w - width) / 2f
     }
 }
 

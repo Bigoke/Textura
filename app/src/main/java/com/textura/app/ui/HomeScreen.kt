@@ -1,5 +1,11 @@
 package com.textura.app.ui
 
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Spellcheck
 import androidx.compose.material3.FilledTonalButton
@@ -200,7 +206,7 @@ fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryIt
                     Group("Format · ${vm.shape.label}", stateKey = "home-format") {
                         ShapePicker(vm.shape) { vm.updateShape(it) }
                     }
-                    Group("Quote of the day", stateKey = "home-quote") {
+                    Group("Ideas", stateKey = "home-quote") {
                         QuoteCard { vm.updateText(it) }
                     }
                 }
@@ -288,15 +294,32 @@ fun HistoryThumb(vm: AppViewModel, item: HistoryItem, height: Dp, modifier: Modi
 
 @Composable
 private fun QuoteCard(onUse: (String) -> Unit) {
+    var category by rememberSaveable { mutableStateOf("Wisdom") }
     var quote by remember { mutableStateOf(Quotes.ofTheDay()) }
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
-        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("Quote of the day", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            Text("\u201C${quote.text}\u201D", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 4.dp))
-            Text("\u2014 ${quote.author}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row {
-                TextButton(onClick = { onUse(quote.asText()) }) { Text("Use this") }
-                TextButton(onClick = { quote = Quotes.random(quote.text) }) { Text("Another") }
+    Column(Modifier.fillMaxWidth()) {
+        DropdownSelector(Quotes.categories, category, { it }) { c ->
+            category = c
+            quote = Quotes.random(c, quote.text)
+        }
+        Spacer(Modifier.height(10.dp))
+        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                AnimatedContent(
+                    targetState = quote,
+                    transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(120)) },
+                    label = "idea",
+                ) { q ->
+                    Column {
+                        Text("\u201C${q.text}\u201D", style = MaterialTheme.typography.bodyLarge)
+                        if (q.author.isNotBlank()) {
+                            Text("\u2014 ${q.author}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                        }
+                    }
+                }
+                Row(Modifier.padding(top = 6.dp)) {
+                    TextButton(onClick = { onUse(quote.asText()) }) { Text("Use this") }
+                    TextButton(onClick = { quote = Quotes.random(category, quote.text) }) { Text("Shuffle") }
+                }
             }
         }
     }

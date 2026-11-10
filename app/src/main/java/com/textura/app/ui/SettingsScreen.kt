@@ -25,6 +25,8 @@ import com.textura.app.model.CanvasShape
 
 private val SettingResolutions = listOf(1080 to "HD 1080", 2048 to "2K 2048", 3840 to "4K 3840")
 private val SigPositions = listOf(0 to "Left", 1 to "Centre", 2 to "Right")
+private val SigStyles = listOf(0 to "Elegant", 1 to "Script", 2 to "Badge", 3 to "Plain")
+private val SigColors = listOf(0 to "White", 1 to "Black", 2 to "Gold")
 
 @Composable
 fun SettingsScreen(vm: AppViewModel) {
@@ -96,8 +98,28 @@ fun SettingsScreen(vm: AppViewModel) {
         )
         ChipRow(SigPositions, SigPositions.first { it.first == s.signaturePos }, { it.second }) { p ->
             vm.updateSettings { it.copy(signaturePos = p.first) }
+        ChipRow(SigStyles, SigStyles.first { it.first == s.signatureStyle }, { it.second }) { p ->
+            vm.updateSettings { it.copy(signatureStyle = p.first) }
+        }
+        ChipRow(SigColors, SigColors.first { it.first == s.signatureColor }, { it.second }) { p ->
+            vm.updateSettings { it.copy(signatureColor = p.first) }
+        }
         }
 
+        }
+        Group("Translation quality") {
+        Text(
+            "The built-in translator works offline. For much better Afrikaans and English, paste a Google Cloud Translation API key; it is only used when you translate and stays on this phone.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        OutlinedTextField(
+            value = s.googleKey,
+            onValueChange = { v -> vm.updateSettings { it.copy(googleKey = v.trim()) } },
+            singleLine = true,
+            label = { Text("Google Translation API key (optional)") },
+            modifier = Modifier.fillMaxWidth(),
+        )
         }
         Group("Feel") {
         SwitchRow("Haptic tick when swiping", s.haptics) { on -> vm.updateSettings { it.copy(haptics = on) } }

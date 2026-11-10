@@ -1,5 +1,11 @@
 package com.textura.app.ui
 
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import com.textura.app.model.FrameStyle
+import com.textura.app.render.FramePainter
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -631,5 +637,60 @@ fun StickersTab(vm: AppViewModel, look: Look, selected: String?, onSelect: (Stri
             Icon(Icons.Rounded.Delete, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Delete")
         }
     }
+    }
+}
+
+
+// ------------------------------------------------------------------------------------------------
+// FRAMES
+// ------------------------------------------------------------------------------------------------
+@Composable
+private fun FrameTile(style: FrameStyle, look: Look, selected: Boolean, onClick: () -> Unit) {
+    val ring = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val bg = look.bg.colors.firstOrNull() ?: 0xFF202028.toInt()
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        Modifier
+            .width(76.dp)
+            .clip(shape)
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        androidx.compose.foundation.Canvas(
+            Modifier
+                .size(width = 76.dp, height = 96.dp)
+                .clip(shape)
+                .border(if (selected) 2.dp else 1.dp, ring, shape),
+        ) {
+            drawRect(androidx.compose.ui.graphics.Color(bg))
+            drawIntoCanvas { cv ->
+                val k = size.width / 300f
+                cv.nativeCanvas.save()
+                cv.nativeCanvas.scale(size.width / 300f, size.width / 300f)
+                FramePainter.draw(cv.nativeCanvas, style, look.frameColor, look.frameColor2, look.frameThickness, look.frameInset, 300f, size.height / k)
+                cv.nativeCanvas.restore()
+            }
+        }
+        Text(style.label, style = MaterialTheme.typography.labelSmall, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun FrameTab(vm: AppViewModel, look: Look) {
+    Group("Frame style", startOpen = true) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            FrameStyle.entries.forEach { st ->
+                FrameTile(st, look, look.frame == st) { vm.edit { it.copy(frame = st) } }
+            }
+        }
+    }
+    if (look.frame != FrameStyle.None) {
+        Group("Adjust", startOpen = true) {
+            ColorField("Colour", look.frameColor) { col -> vm.edit { it.copy(frameColor = col or -0x1000000) } }
+            ColorField("Accent colour", look.frameColor2) { col -> vm.edit { it.copy(frameColor2 = col or -0x1000000) } }
+            LabeledSlider("Thickness", look.frameThickness, 0f..1f, { v -> vm.edit { it.copy(frameThickness = v) } })
+            LabeledSlider("Distance from edge", look.frameInset, 0f..1f, { v -> vm.edit { it.copy(frameInset = v) } })
+        }
     }
 }
