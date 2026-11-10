@@ -593,7 +593,6 @@ fun StickersTab(vm: AppViewModel, look: Look, selected: String?, onSelect: (Stri
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 12.dp),
         )
-        return
     }
 
     }

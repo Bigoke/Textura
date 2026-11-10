@@ -1,5 +1,7 @@
 package com.textura.app.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -202,15 +204,13 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
                 }
             }
 
-            FadeVisibility(
-                visible = grid,
-                enter = fadeIn(tween(220)) + scaleIn(tween(260), initialScale = 0.96f),
-                exit = fadeOut(tween(160)) + scaleOut(tween(200), targetScale = 0.97f),
-            ) {
+            val gridT by animateFloatAsState(if (grid) 1f else 0f, tween(240), label = "grid")
+            if (gridT > 0.01f) {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
                     modifier = Modifier
                         .fillMaxSize()
+                        .graphicsLayer { alpha = gridT; val k = 0.96f + 0.04f * gridT; scaleX = k; scaleY = k }
                         .background(MaterialTheme.colorScheme.background),
                     contentPadding = PaddingValues(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
