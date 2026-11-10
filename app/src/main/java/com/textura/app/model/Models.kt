@@ -154,6 +154,8 @@ data class Look(
     val offsetY: Float = 0f,
 
     // text outline shape
+    val randomSize: Float = 0f,
+    val randomSeed: Int = 1,
     val textShape: TextShape = TextShape.Rect,
     val shapeColor: Int? = null,
 

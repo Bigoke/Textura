@@ -187,6 +187,17 @@ object TextEngine {
         val baseStyle = WordStyle()
         val paras = Markup.parse(textIn.replace("\r", ""), look.uppercase)
         if (paras.isEmpty()) paras.add(listOf("Your", "text", "here").map { Markup.Tok(it, baseStyle) })
+        if (look.randomSize > 0.01f) {
+            // a different size for every word, always the same for the same text and seed
+            val rnd = java.util.Random(look.randomSeed * 7919L)
+            val r = look.randomSize
+            for (pi in paras.indices) {
+                paras[pi] = paras[pi].map { t ->
+                    val f = 1f + r * (rnd.nextFloat() * 1.7f - 0.55f)
+                    Markup.Tok(t.s, t.st.copy(scale = t.st.scale * f.coerceIn(0.35f, 2.6f)), t.glue)
+                }
+            }
+        }
 
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
         fun configure(st: WordStyle, size: Float) {

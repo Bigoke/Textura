@@ -145,6 +145,11 @@ fun TextTab(vm: AppViewModel, look: Look) {
         AssistChip(onClick = { wrapSelection("[small]", "[/small]") }, label = { Text("Small") })
         AssistChip(onClick = { tools = ToolsRequest(vm.text, false, 1) }, label = { Text("Spelling & grammar") })
         AssistChip(onClick = { tools = ToolsRequest(vm.text, false, 0) }, label = { Text("Translate") })
+        AssistChip(onClick = {
+            val styled = autoEmphasis(Markup.strip(tfv.text))
+            tfv = TextFieldValue(styled)
+            vm.updateText(styled)
+        }, label = { Text("Auto emphasis") })
         AssistChip(onClick = { colorDialog = true }, label = { Text("Colour") })
         AssistChip(onClick = { fontMenu = true }, label = { Text("Font") })
         AssistChip(onClick = {
@@ -457,6 +462,13 @@ fun LayoutTab(vm: AppViewModel, look: Look) {
     }
 
     }
+    Group("Art: random word size") {
+    LabeledSlider("Size variation", look.randomSize, 0f..1f, { v -> vm.edit { it.copy(randomSize = v) } })
+    if (look.randomSize > 0.01f) {
+        OutlinedButton(onClick = { vm.edit { it.copy(randomSeed = (it.randomSeed % 9999) + 1) } }) { Text("Shuffle the sizes") }
+    }
+
+    }
     Group("Alignment") {
     ChipRow(Align.entries, look.align, { it.name }) { a -> vm.edit { it.copy(align = a) } }
     Spacer(Modifier.height(4.dp))
@@ -694,3 +706,23 @@ fun FrameTab(vm: AppViewModel, look: Look) {
         }
     }
 }
+
+
+/** Picks the most important-looking words (the longest ones in each paragraph) and makes them stand out. */
+private fun autoEmphasis(plain: String): String =
+    plain.split("\n").joinToString("\n") { line ->
+        val words = line.split(" ")
+        val core = words.map { w -> w.trim { !it.isLetterOrDigit() } }
+        val ranked = core.indices.filter { core[it].length >= 5 }.sortedByDescending { core[it].length }
+        val big = ranked.getOrNull(0)
+        val soft = ranked.getOrNull(1)
+        words.mapIndexed { i, w ->
+            val c = core[i]
+            if (c.isEmpty() || (i != big && i != soft)) w
+            else {
+                val start = w.indexOf(c)
+                val body = if (i == big) "[c=#E8604C][big]$c[/big][/c]" else "[i]$c[/i]"
+                w.substring(0, start) + body + w.substring(start + c.length)
+            }
+        }.joinToString(" ")
+    }

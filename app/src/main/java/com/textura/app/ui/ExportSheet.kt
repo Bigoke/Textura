@@ -59,6 +59,18 @@ import kotlin.math.roundToInt
 
 enum class ExportMode { Save, Share }
 
+private class ExportPreset(val label: String, val shape: com.textura.app.model.CanvasShape, val edge: Int)
+
+private val Presets = listOf(
+    ExportPreset("WhatsApp status", com.textura.app.model.CanvasShape.Story, 1920),
+    ExportPreset("Instagram post", com.textura.app.model.CanvasShape.Insta, 1350),
+    ExportPreset("Instagram story", com.textura.app.model.CanvasShape.Story, 1920),
+    ExportPreset("Facebook cover", com.textura.app.model.CanvasShape.Cover, 1640),
+    ExportPreset("Pinterest pin", com.textura.app.model.CanvasShape.Pin, 1500),
+    ExportPreset("A4 print, 300 dpi", com.textura.app.model.CanvasShape.A4, 3508),
+    ExportPreset("Wallpaper (this phone)", com.textura.app.model.CanvasShape.Screen, 2400),
+)
+
 private val Resolutions = listOf(1080 to "HD", 2048 to "2K", 3840 to "4K")
 private val SigPositions = listOf(0 to "Left", 1 to "Centre", 2 to "Right")
 private val SigStyles = listOf(0 to "Elegant", 1 to "Script", 2 to "Badge", 3 to "Plain")
@@ -142,6 +154,14 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
             Text("Export", style = MaterialTheme.typography.titleLarge)
             Text(sizeText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
+            Group("Quick preset", startOpen = false) {
+            DropdownSelector(Presets, Presets.firstOrNull { it.shape == vm.shape && it.edge == longEdge } ?: Presets[0], { it.label }) { p ->
+                vm.updateShape(p.shape)
+                longEdge = p.edge
+            }
+            Text("Sets the size and shape for that place.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            }
             Group("Resolution (longest side)", startOpen = true) {
             val selectedRes = Resolutions.firstOrNull { it.first == longEdge } ?: Resolutions[1]
             ChipRow(Resolutions, selectedRes, { "${it.second} · ${it.first}" }) { longEdge = it.first }

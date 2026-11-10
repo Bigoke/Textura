@@ -241,6 +241,23 @@ object Catalogue {
             margin = 0.1f, bg = grad(90f, 0x050505, 0x15161B),
         ),
 
+        Look(
+            id = "art_word_cloud", name = "Word cloud", category = Category.Art,
+            fontId = "montserrat", textColor = c(0xFFFFFF), textColor2 = c(0xFFD166), bold = true, align = Align.Justify,
+            margin = 0.06f, lineSpacing = 0.95f, randomSize = 0.9f, randomSeed = 3,
+            bg = grad(140f, 0x1B1F3B, 0x6A3D9A),
+        ),
+        Look(
+            id = "art_chaos", name = "Chaos type", category = Category.Art,
+            fontId = "anton", textColor = c(0x111111), uppercase = true, align = Align.Justify, margin = 0.05f,
+            lineSpacing = 0.9f, randomSize = 1f, randomSeed = 11, bg = solid(0xF2E8D5),
+        ),
+        Look(
+            id = "art_ransom", name = "Mixed sizes", category = Category.Art,
+            fontId = "playfair", textColor = c(0xFFF3E0), textColor2 = c(0xE8604C), align = Align.Center, margin = 0.08f,
+            randomSize = 0.7f, randomSeed = 5, bg = grad(160f, 0x2B1B17, 0x5C3A2E),
+        ),
+
         // ---------------------------------------------------------------- 3D
         Look(
             id = "d3_block_gold", name = "Gold blocks", category = Category.ThreeD,
