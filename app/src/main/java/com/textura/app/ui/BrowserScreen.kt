@@ -6,7 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibility as FadeVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.material3.FilterChipDefaults
@@ -202,7 +202,7 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
                 }
             }
 
-            AnimatedVisibility(
+            FadeVisibility(
                 visible = grid,
                 enter = fadeIn(tween(220)) + scaleIn(tween(260), initialScale = 0.96f),
                 exit = fadeOut(tween(160)) + scaleOut(tween(200), targetScale = 0.97f),

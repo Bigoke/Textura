@@ -500,7 +500,6 @@ fun PaperTab(vm: AppViewModel, look: Look) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 12.dp),
         )
-        return
     }
     Group("Sheet", startOpen = true) {
     ColorField("Paper colour", look.paperColor, withAlpha = look.paper == PaperType.Glass) { col ->
@@ -598,7 +597,7 @@ fun StickersTab(vm: AppViewModel, look: Look, selected: String?, onSelect: (Stri
     }
 
     }
-    Group("On the page") {
+    if (look.stickers.isNotEmpty()) Group("On the page") {
     Row(
         Modifier
             .fillMaxWidth()
@@ -610,7 +609,7 @@ fun StickersTab(vm: AppViewModel, look: Look, selected: String?, onSelect: (Stri
         }
     }
 
-    val sel = look.stickers.firstOrNull { it.id == selected } ?: return
+    val sel = look.stickers.firstOrNull { it.id == selected } ?: return@Group
     Spacer(Modifier.height(6.dp))
     LabeledSlider("Size", sel.size, 0.03f..1f, { v -> update(sel.id) { it.copy(size = v) } })
     LabeledSlider("Rotation", sel.rot, -180f..180f, { v -> update(sel.id) { it.copy(rot = v) } }, "${sel.rot.toInt()}°")

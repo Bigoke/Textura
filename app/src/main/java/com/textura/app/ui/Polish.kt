@@ -1,5 +1,6 @@
 package com.textura.app.ui
 
+import androidx.compose.ui.composed
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -90,7 +91,7 @@ fun Group(title: String, startOpen: Boolean = false, stateKey: String = title, c
 }
 
 /** Gives a tappable thing a soft press: it shrinks slightly and springs back. Does not interfere with clicks. */
-fun Modifier.pressScale(scaleDown: Float = 0.95f): Modifier = composed2 {
+fun Modifier.pressScale(scaleDown: Float = 0.95f): Modifier = composed {
     var pressed by remember { mutableStateOf(false) }
     val s by animateFloatAsState(
         if (pressed) scaleDown else 1f,
@@ -108,9 +109,6 @@ fun Modifier.pressScale(scaleDown: Float = 0.95f): Modifier = composed2 {
         }
         .graphicsLayer { scaleX = s; scaleY = s }
 }
-
-@Composable
-private fun Modifier.composed2(block: @Composable Modifier.() -> Modifier): Modifier = block()
 
 /** Fades and lifts its content into place, one after another by [index], the first time it appears. */
 @Composable
