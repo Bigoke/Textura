@@ -52,6 +52,8 @@ import com.textura.app.model.Look
 import com.textura.app.render.Renderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 import android.graphics.Color as AColor
@@ -73,12 +75,44 @@ object PreviewCache {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
     }
 
+    private val scope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + Dispatchers.Default.limitedParallelism(3),
+    )
+    private val inFlight = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Deferred<Bitmap>>()
+
+    private fun keyOf(look: Look, text: String, shape: CanvasShape, longEdge: Int) =
+        "${look.hashCode()}|${text.hashCode()}|${shape.name}|$longEdge"
+
+    /** The finished picture if it is already in memory, so a page can show it on its very first frame. */
+    fun peek(look: Look, text: String, shape: CanvasShape, longEdge: Int): Bitmap? =
+        cache.get(keyOf(look, text, shape, longEdge))
+
+    /**
+     * Renders in the background and keeps going even if the caller is cancelled (for example when the page is swiped
+     * away), so the picture is ready the next time it is needed.
+     */
     suspend fun get(context: android.content.Context, look: Look, text: String, shape: CanvasShape, longEdge: Int): Bitmap {
-        val key = "${look.hashCode()}|${text.hashCode()}|${shape.name}|$longEdge"
+        val key = keyOf(look, text, shape, longEdge)
         cache.get(key)?.let { return it }
-        val bmp = withContext(Dispatchers.Default) { Renderer.render(context, look, text, shape, longEdge) }
-        cache.put(key, bmp)
-        return bmp
+        val job = inFlight.getOrPut(key) {
+            scope.async {
+                try {
+                    cache.get(key) ?: run {
+                        val bmp = runCatching { Renderer.render(context, look, text, shape, longEdge) }
+                            .getOrElse { Renderer.render(context, look, text, shape, longEdge) }
+                        cache.put(key, bmp)
+                        bmp
+                    }
+                } finally {
+                    inFlight.remove(key)
+                }
+            }
+        }
+        return job.await()
+    }
+
+    fun prefetch(context: android.content.Context, look: Look, text: String, shape: CanvasShape, longEdge: Int) {
+        scope.launch { runCatching { get(context, look, text, shape, longEdge) } }
     }
 }
 
@@ -94,7 +128,7 @@ fun LookPreview(
     debounceMs: Long = 0L,
 ) {
     val ctx = LocalContext.current.applicationContext
-    val bmp by produceState<Bitmap?>(null, look, text, shape, longEdge) {
+    val bmp by produceState<Bitmap?>(PreviewCache.peek(look, text, shape, longEdge), look, text, shape, longEdge) {
         if (debounceMs > 0) delay(debounceMs)
         value = PreviewCache.get(ctx, look, text, shape, longEdge)
     }

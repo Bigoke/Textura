@@ -87,6 +87,13 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     val pager = rememberPagerState(initialPage = vm.browserIndex.coerceIn(0, max(0, vm.looks.size - 1))) { vm.looks.size }
+    val appCtx = LocalContext.current.applicationContext
+    LaunchedEffect(pager.currentPage, vm.text, vm.shape, vm.looks.size) {
+        // draw the neighbouring looks ahead of time, nearest first, so swiping never shows an empty card
+        for (d in listOf(0, 1, -1, 2, -2, 3, 4)) {
+            vm.looks.getOrNull(pager.currentPage + d)?.let { PreviewCache.prefetch(appCtx, it, vm.text, vm.shape, 900) }
+        }
+    }
     var grid by remember { mutableStateOf(false) }
     var exportMode by remember { mutableStateOf<ExportMode?>(null) }
 
@@ -172,7 +179,7 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 36.dp),
                 pageSpacing = 16.dp,
-                beyondViewportPageCount = 1,
+                beyondViewportPageCount = 2,
             ) { page ->
                 val look = vm.looks.getOrNull(page)
                 if (look != null) {
