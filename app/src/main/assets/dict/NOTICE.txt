@@ -1,8 +1,8 @@
 Spell-check word lists used by Textura
 
 Afrikaans: af_ZA Hunspell dictionary (Translate.org.za / PuzzleFoundry, Kris van der Merwe; word list by B. Nieuwoudt and D. Viljoen),
-licensed under the GNU Lesser General Public License 2.1 or later. The file af.txt.gz is that dictionary with its affix rules
+licensed under the GNU Lesser General Public License 2.1 or later. The file af.words is that dictionary with its affix rules
 expanded into a plain word list. See LICENSE-afrikaans.txt.
 
-English: SCOWL-derived en_US and en_ZA Hunspell dictionaries (http://wordlist.sourceforge.net), expanded into one word list in en.txt.gz.
+English: SCOWL-derived en_US and en_ZA Hunspell dictionaries (http://wordlist.sourceforge.net), expanded into one word list in en.words.
 Permissive licences, see the SCOWL copyright notice.

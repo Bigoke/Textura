@@ -1,7 +1,6 @@
 package com.textura.app.lang
 
 import android.content.Context
-import java.util.zip.GZIPInputStream
 
 /** The bundled word lists (expanded Hunspell dictionaries), loaded once and kept in memory. */
 object Dictionary {
@@ -10,8 +9,9 @@ object Dictionary {
     @Synchronized
     fun get(context: Context, lang: Lang): Set<String> = sets.getOrPut(lang) {
         val out = HashSet<String>(200_000)
-        context.applicationContext.assets.open("dict/${lang.code}.txt.gz").use { raw ->
-            GZIPInputStream(raw).bufferedReader(Charsets.UTF_8).forEachLine { if (it.isNotEmpty()) out.add(it) }
+        // plain text: the build tools unpack .gz assets and drop the extension, so a gzip file cannot be relied on
+        context.applicationContext.assets.open("dict/${lang.code}.words").bufferedReader(Charsets.UTF_8).use { r ->
+            r.forEachLine { if (it.isNotEmpty()) out.add(it) }
         }
         out
     }
