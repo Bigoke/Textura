@@ -1,5 +1,7 @@
 package com.textura.app.ui
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -52,7 +54,8 @@ fun LibraryScreen(vm: AppViewModel, onOpenLook: (Look) -> Unit, onOpenHistory: (
         TabRow(selectedTabIndex = tab, containerColor = Color.Transparent) {
             LibraryTabs.forEachIndexed { i, title -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(title) }) }
         }
-        when (tab) {
+        Crossfade(targetState = tab, animationSpec = tween(220), label = "libTab") { t ->
+        when (t) {
             0 -> LooksGrid(
                 vm, vm.favoriteLooks(), "Tap the heart on any look to keep it here.",
                 onOpenLook, onDelete = null,
@@ -62,6 +65,7 @@ fun LibraryScreen(vm: AppViewModel, onOpenLook: (Look) -> Unit, onOpenHistory: (
                 onOpenLook, onDelete = { vm.deleteTemplate(it.id) },
             )
             else -> HistoryGrid(vm, onOpenHistory)
+        }
         }
     }
 }

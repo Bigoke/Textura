@@ -1,5 +1,10 @@
 package com.textura.app.ui
 
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.rounded.ExpandMore
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -135,11 +140,12 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
             Text("Export", style = MaterialTheme.typography.titleLarge)
             Text(sizeText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-            SectionTitle("Resolution (longest side)")
+            Group("Resolution (longest side)", startOpen = true) {
             val selectedRes = Resolutions.firstOrNull { it.first == longEdge } ?: Resolutions[1]
             ChipRow(Resolutions, selectedRes, { "${it.second} · ${it.first}" }) { longEdge = it.first }
 
-            SectionTitle("Format")
+            }
+            Group("Format", startOpen = true) {
             ChipRow(ImageFormat.entries, format, { it.label }) {
                 format = it
                 if (it == ImageFormat.JPG) transparent = false
@@ -148,14 +154,16 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
                 SwitchRow("Transparent background (text only)", transparent) { transparent = it }
             }
 
-            SectionTitle("Carousel (split long text over several pages)")
+            }
+            Group("Carousel (split long text over several pages)") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { pages = (pages - 1).coerceAtLeast(1) }, enabled = !busy) { Icon(Icons.Rounded.Remove, "Fewer pages") }
                 Text(if (pages == 1) "Single image" else "$pages pages", modifier = Modifier.width(110.dp))
                 IconButton(onClick = { pages = (pages + 1).coerceAtMost(10) }, enabled = !busy) { Icon(Icons.Rounded.Add, "More pages") }
             }
 
-            SectionTitle("Signature")
+            }
+            Group("Signature") {
             SwitchRow("Add my signature", signOn) { signOn = it }
             if (signOn) {
                 OutlinedTextField(
@@ -170,6 +178,7 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
                 }
             }
 
+            }
             Spacer(Modifier.height(16.dp))
             if (busy) {
                 val p = progress
@@ -200,31 +209,34 @@ fun ExportSheet(vm: AppViewModel, look: Look, mode: ExportMode, onDismiss: () ->
                             Icon(Icons.Rounded.SaveAlt, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Save")
                         }
                         OutlinedButton(onClick = { run(true) }, modifier = Modifier.weight(1f)) {
-                            Icon(Icons.Rounded.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("More…")
+                            Icon(Icons.Rounded.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Share")
                         }
                     } else {
                         OutlinedButton(onClick = { run(false) }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Rounded.SaveAlt, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Save")
                         }
                         Button(onClick = { run(true) }, modifier = Modifier.weight(1f)) {
-                            Icon(Icons.Rounded.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("More…")
+                            Icon(Icons.Rounded.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Share")
                         }
                     }
                 }
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { run(true, Exporter.WHATSAPP) }, modifier = Modifier.weight(1f)) { Text("WhatsApp") }
-                    OutlinedButton(onClick = { run(true, Exporter.INSTAGRAM) }, modifier = Modifier.weight(1f)) { Text("Instagram") }
-                    OutlinedButton(onClick = { run(true, Exporter.FACEBOOK) }, modifier = Modifier.weight(1f)) { Text("Facebook") }
-                }
-
-                SectionTitle("Video and GIF")
-                OutlinedButton(onClick = { showVideo = true }, modifier = Modifier.fillMaxWidth()) { Text("Video & GIF…") }
-
-                SectionTitle("Batch (this text in many looks)")
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = { runBatch(false) }, modifier = Modifier.weight(1f)) { Text("All looks") }
-                    OutlinedButton(onClick = { runBatch(true) }, modifier = Modifier.weight(1f)) { Text("Favorites") }
+                Spacer(Modifier.height(8.dp))
+                var moreOpen by remember { mutableStateOf(false) }
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TextButton(onClick = { moreOpen = true }) {
+                        Text("More ways to export")
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
+                    }
+                    DropdownMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }) {
+                        DropdownMenuItem(text = { Text("Send to WhatsApp") }, onClick = { moreOpen = false; run(true, Exporter.WHATSAPP) })
+                        DropdownMenuItem(text = { Text("Send to Instagram") }, onClick = { moreOpen = false; run(true, Exporter.INSTAGRAM) })
+                        DropdownMenuItem(text = { Text("Send to Facebook") }, onClick = { moreOpen = false; run(true, Exporter.FACEBOOK) })
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text("Video or GIF…") }, onClick = { moreOpen = false; showVideo = true })
+                        DropdownMenuItem(text = { Text("All looks with this text") }, onClick = { moreOpen = false; runBatch(false) })
+                        DropdownMenuItem(text = { Text("My favorites with this text") }, onClick = { moreOpen = false; runBatch(true) })
+                    }
                 }
             }
         }

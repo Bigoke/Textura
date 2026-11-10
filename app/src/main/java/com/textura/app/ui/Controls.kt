@@ -124,9 +124,9 @@ fun LookPreview(
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
-        style = MaterialTheme.typography.labelLarge,
+        style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier.padding(top = 14.dp, bottom = 6.dp),
+        modifier = modifier.padding(top = 16.dp, bottom = 8.dp),
     )
 }
 
@@ -164,6 +164,10 @@ fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
 
 @Composable
 fun <T> ChipRow(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
+    if (options.size > 5) {
+        DropdownSelector(options, selected, label, onSelect)
+        return
+    }
     Row(
         Modifier
             .fillMaxWidth()

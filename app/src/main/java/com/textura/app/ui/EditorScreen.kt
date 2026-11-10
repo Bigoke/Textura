@@ -1,5 +1,11 @@
 package com.textura.app.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Spacer
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
@@ -240,7 +246,11 @@ fun EditorScreen(vm: AppViewModel, onDone: () -> Unit, onHandwriting: () -> Unit
                         .padding(horizontal = 20.dp)
                         .padding(top = 4.dp, bottom = 24.dp),
                 ) {
-                    when (tab) {
+                    AnimatedContent(
+                        targetState = tab,
+                        transitionSpec = { fadeIn(tween(220, delayMillis = 60)) togetherWith fadeOut(tween(120)) },
+                        label = "tabContent",
+                    ) { t -> Column(Modifier.fillMaxWidth()) { when (t) {
                         0 -> TextTab(vm, look)
                         1 -> FontTab(vm, look, onHandwriting)
                         2 -> BackgroundTab(vm, look)
@@ -249,8 +259,8 @@ fun EditorScreen(vm: AppViewModel, onDone: () -> Unit, onHandwriting: () -> Unit
                         5 -> PaperTab(vm, look)
                         6 -> SceneTab(vm, look)
                         else -> StickersTab(vm, look, selectedSticker) { selectedSticker = it }
-                    }
-                    SectionTitle("Finish")
+                    } } }
+                    Spacer(Modifier.height(18.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         OutlinedButton(onClick = { templateName = ""; saveDialog = true }, modifier = Modifier.weight(1f)) {
                             Text("Save as my template")

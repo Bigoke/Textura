@@ -180,10 +180,11 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
                 }
             }
 
-            SectionTitle("Format")
+            Group("Format", startOpen = true) {
             ChipRow(listOf(false, true), o.gif, { if (it) "GIF (no sound)" else "MP4 video" }) { g -> vm.updateVideo { it.copy(gif = g) } }
 
-            SectionTitle("Pages (split long text over several pages)")
+            }
+            Group("Pages (split long text over several pages)") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { vm.updateVideo { it.copy(pages = (it.pages - 1).coerceAtLeast(1)) } }, enabled = !busy) { Icon(Icons.Rounded.Remove, "Fewer pages") }
                 Text(if (o.pages == 1) "Single page" else "${o.pages} pages", modifier = Modifier.width(110.dp))
@@ -198,7 +199,8 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
                 )
             }
 
-            SectionTitle("Animation")
+            }
+            Group("Animation", startOpen = true) {
             ChipRow(VideoStyle.entries, o.style, { it.label }) { s -> vm.updateVideo { it.copy(style = s) } }
             Spacer(Modifier.height(6.dp))
             ChipRow(WriteTimes, WriteTimes.firstOrNull { it.first == o.seconds } ?: WriteTimes[0], { "Writing: " + it.second }) { t ->
@@ -208,7 +210,8 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
             LabeledSlider("Hold the finished text", o.hold, 0f..5f, { v -> vm.updateVideo { it.copy(hold = v) } }, "${"%.1f".format(o.hold)} s")
             SwitchRow("Loop (fade out and restart)", o.loop) { on -> vm.updateVideo { it.copy(loop = on) } }
 
-            SectionTitle("Intro and outro")
+            }
+            Group("Intro and outro") {
             SwitchRow("Intro title card", o.intro) { on -> vm.updateVideo { it.copy(intro = on) } }
             if (o.intro) {
                 OutlinedTextField(
@@ -226,7 +229,8 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
                 LabeledSlider("Outro length", o.outroSec, 1f..4f, { v -> vm.updateVideo { it.copy(outroSec = v) } }, "${"%.1f".format(o.outroSec)} s")
             }
 
-            SectionTitle("Quality")
+            }
+            Group("Quality") {
             if (o.gif) {
                 ChipRow(GifSizes, GifSizes.firstOrNull { it.first == o.gifEdge } ?: GifSizes[1], { it.second + " px" }) { s -> vm.updateVideo { it.copy(gifEdge = s.first) } }
                 Spacer(Modifier.height(6.dp))
@@ -246,9 +250,10 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
                     modifier = Modifier.padding(top = 6.dp),
                 )
             }
+            }
 
             if (!o.gif) {
-                SectionTitle("Sound")
+                Group("Sound") {
                 ChipRow(FxSound.entries, o.fx, { it.label }) { f -> vm.updateVideo { it.copy(fx = f) } }
                 if (o.fx != FxSound.Off) {
                     LabeledSlider("Effects volume", o.fxVolume, 0f..1f, { v -> vm.updateVideo { it.copy(fxVolume = v) } }, "${(o.fxVolume * 100).toInt()}%")
@@ -264,6 +269,7 @@ fun VideoSheet(vm: AppViewModel, look: Look, signature: Watermark?, onClose: () 
                 }
                 if (o.music != MusicChoice.None) {
                     LabeledSlider("Music volume", o.musicVolume, 0f..1f, { v -> vm.updateVideo { it.copy(musicVolume = v) } }, "${(o.musicVolume * 100).toInt()}%")
+                }
                 }
             }
 

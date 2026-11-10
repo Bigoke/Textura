@@ -1,5 +1,10 @@
 package com.textura.app.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -121,30 +126,36 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
                     )
                 }
             }
-            IconButton(onClick = { grid = !grid }) {
-                Icon(if (grid) Icons.Rounded.ViewCarousel else Icons.Rounded.GridView, "Toggle grid")
+            val fav0 = vm.isFavorite(current)
+            val pulse = remember { Animatable(1f) }
+            LaunchedEffect(fav0) {
+                if (fav0) { pulse.animateTo(1.4f, tween(110)); pulse.animateTo(1f, spring(0.35f, 380f)) }
             }
-        }
-
-        // ---- category pills
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(Category.entries) { cat ->
-                FilterChip(
-                    selected = cat == current.category,
-                    onClick = {
-                        val idx = looks.indexOfFirst { it.category == cat && it.id != AppViewModel.WORKING_ID }
-                        if (idx >= 0) {
-                            grid = false
-                            scope.launch { pager.animateScrollToPage(idx) }
-                        }
-                    },
-                    label = { Text(cat.label) },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent.copy(alpha = 0.30f)),
+            IconButton(onClick = {
+                val wasWorking = current.id == AppViewModel.WORKING_ID
+                vm.toggleFavorite(current)
+                if (wasWorking) Toast.makeText(ctx, "Saved to My templates", Toast.LENGTH_SHORT).show()
+            }) {
+                Icon(
+                    if (fav0) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, "Favorite",
+                    tint = if (fav0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.graphicsLayer { scaleX = pulse.value; scaleY = pulse.value },
                 )
             }
+            OverflowMenu(
+                buildList {
+                    add(MenuAction(if (grid) "Back to swiping" else "Show all looks", if (grid) Icons.Rounded.ViewCarousel else Icons.Rounded.GridView) { grid = !grid })
+                    Category.entries.forEach { cat ->
+                        add(MenuAction("Jump to ${cat.label}") {
+                            val idx = looks.indexOfFirst { it.category == cat && it.id != AppViewModel.WORKING_ID }
+                            if (idx >= 0) {
+                                grid = false
+                                scope.launch { pager.animateScrollToPage(idx) }
+                            }
+                        })
+                    }
+                },
+            )
         }
 
         // ---- the pages (and the grid laid over them)
@@ -191,7 +202,11 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
                 }
             }
 
-            if (grid) {
+            AnimatedVisibility(
+                visible = grid,
+                enter = fadeIn(tween(220)) + scaleIn(tween(260), initialScale = 0.96f),
+                exit = fadeOut(tween(160)) + scaleOut(tween(200), targetScale = 0.97f),
+            ) {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
                     modifier = Modifier
@@ -248,7 +263,6 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
         }
 
         // ---- action bar
-        val fav = vm.isFavorite(current)
         Row(
             Modifier
                 .fillMaxWidth()
@@ -258,15 +272,6 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
             ActionItem(Icons.Rounded.Edit, "Edit") {
                 vm.startEditing(current)
                 onEdit()
-            }
-            ActionItem(
-                if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                "Favorite",
-                tint = if (fav) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-            ) {
-                val wasWorking = current.id == AppViewModel.WORKING_ID
-                vm.toggleFavorite(current)
-                if (wasWorking) Toast.makeText(ctx, "Saved to My templates", Toast.LENGTH_SHORT).show()
             }
             ActionItem(Icons.Rounded.SaveAlt, "Save") { exportMode = ExportMode.Save }
             ActionItem(Icons.Rounded.Share, "Share") { exportMode = ExportMode.Share }
@@ -280,9 +285,10 @@ fun BrowserScreen(vm: AppViewModel, onBack: () -> Unit, onEdit: () -> Unit) {
 private fun ActionItem(icon: ImageVector, label: String, tint: Color = MaterialTheme.colorScheme.onSurface, onClick: () -> Unit) {
     Column(
         Modifier
+            .pressScale()
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 8.dp),
+            .padding(horizontal = 26.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(icon, label, tint = tint)

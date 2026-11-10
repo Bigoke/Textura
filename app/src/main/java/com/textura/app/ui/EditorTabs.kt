@@ -124,7 +124,7 @@ fun TextTab(vm: AppViewModel, look: Look) {
         visualTransformation = TagDimTransformation(MaterialTheme.colorScheme.outline),
     )
 
-    SectionTitle("Format selected words")
+    Group("Format selected words", startOpen = true) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -165,11 +165,13 @@ fun TextTab(vm: AppViewModel, look: Look) {
         }
     }
 
-    SectionTitle("Style")
+    }
+    Group("Style") {
     SwitchRow("UPPERCASE", look.uppercase) { on -> vm.edit { it.copy(uppercase = on) } }
     SwitchRow("Bold", look.bold) { on -> vm.edit { it.copy(bold = on) } }
 
-    SectionTitle("Colour")
+    }
+    Group("Colour") {
     ColorField("Text colour", look.textColor, withAlpha = true) { col -> vm.edit { it.copy(textColor = col, foil = FoilType.None) } }
     SwitchRow("Gradient fill", look.textColor2 != null) { on ->
         vm.edit { l ->
@@ -184,8 +186,10 @@ fun TextTab(vm: AppViewModel, look: Look) {
         modifier = Modifier.padding(top = 6.dp),
     ) { Text("Auto contrast (readable on this background)") }
 
-    SectionTitle("Foil finish")
+    }
+    Group("Foil finish") {
     ChipRow(FoilType.entries, look.foil, { it.label }) { f -> vm.edit { it.copy(foil = f) } }
+    }
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -296,33 +300,37 @@ fun BackgroundTab(vm: AppViewModel, look: Look) {
 
     when (bg.kind) {
         BgKind.Solid -> {
-            SectionTitle("Colour")
+            Group("Colour", startOpen = true) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(Palette) { p ->
                     ColorDot(p, 36.dp, selected = bg.colors.firstOrNull() == p) { setBg { it.copy(colors = listOf(p)) } }
                 }
             }
             ColorField("Custom colour", bg.colors.firstOrNull() ?: c(0x14141A)) { col -> setBg { it.copy(colors = listOf(col)) } }
+            }
         }
 
         BgKind.Gradient -> {
-            SectionTitle("Type")
+            Group("Type", startOpen = true) {
             ChipRow(GradientType.entries, bg.gradientType, { it.name }) { t -> setBg { it.copy(gradientType = t) } }
-            SectionTitle("Colours (2 to 5)")
+            }
+            Group("Colours (2 to 5)") {
             ColorsEditor(bg.colors, 2, 5) { list -> setBg { it.copy(colors = list) } }
             if (bg.gradientType == GradientType.Linear) {
                 LabeledSlider("Angle", bg.angle, 0f..360f, { v -> setBg { it.copy(angle = v) } }, "${bg.angle.toInt()}°")
             }
-            SectionTitle("Presets")
+            }
+            Group("Presets") {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(GradientPresets) { preset ->
                     GradientSwatch(preset) { setBg { it.copy(colors = preset) } }
                 }
             }
+            }
         }
 
         BgKind.Image -> {
-            SectionTitle("Photo")
+            Group("Photo", startOpen = true) {
             Button(onClick = {
                 picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             }) {
@@ -344,6 +352,7 @@ fun BackgroundTab(vm: AppViewModel, look: Look) {
                     LabeledSlider("Overlay strength", bg.overlayAlpha, 0f..1f, { v -> setBg { it.copy(overlayAlpha = v) } })
                     LabeledSlider("Overlay angle", bg.angle, 0f..360f, { v -> setBg { it.copy(angle = v) } }, "${bg.angle.toInt()}°")
                 }
+            }
             }
         }
     }
@@ -378,23 +387,25 @@ fun DepthTab(vm: AppViewModel, look: Look) {
 
     when (look.depth) {
         Depth.Flat -> {
-            SectionTitle("Outline")
+            Group("Outline", startOpen = true) {
             SwitchRow("Outline", look.outline) { on -> vm.edit { it.copy(outline = on) } }
             if (look.outline) {
                 ColorField("Outline colour", look.outlineColor) { col -> vm.edit { it.copy(outlineColor = col) } }
                 LabeledSlider("Outline width", look.outlineWidth, 0.01f..0.15f, { v -> vm.edit { it.copy(outlineWidth = v) } })
             }
-            SectionTitle("Shadow and glow")
+            }
+            Group("Shadow and glow", startOpen = true) {
             SwitchRow("Shadow", look.shadow) { on -> vm.edit { it.copy(shadow = on) } }
             if (look.shadow) {
                 ColorField("Shadow colour", look.shadowColor, withAlpha = true) { col -> vm.edit { it.copy(shadowColor = col) } }
                 LabeledSlider("Blur", look.shadowBlur, 0f..0.4f, { v -> vm.edit { it.copy(shadowBlur = v) } })
                 LabeledSlider("Offset", look.shadowOffset, 0f..0.2f, { v -> vm.edit { it.copy(shadowOffset = v) } })
             }
+            }
         }
 
         Depth.Extrude -> {
-            SectionTitle("3D extrusion")
+            Group("3D extrusion", startOpen = true) {
             LabeledSlider("Depth", look.depthLength, 0.05f..1f, { v -> vm.edit { it.copy(depthLength = v) } })
             LabeledSlider(
                 "Direction", look.depthAngle, 0f..360f,
@@ -403,6 +414,7 @@ fun DepthTab(vm: AppViewModel, look: Look) {
             ColorField("Side colour", look.sideColor) { col -> vm.edit { it.copy(sideColor = col) } }
             SwitchRow("Shade sides for depth", look.gradientSide) { on -> vm.edit { it.copy(gradientSide = on) } }
             SwitchRow("Edge highlight", look.highlight) { on -> vm.edit { it.copy(highlight = on) } }
+            }
         }
 
         Depth.Emboss, Depth.Engrave -> {
@@ -422,10 +434,11 @@ fun DepthTab(vm: AppViewModel, look: Look) {
 // ------------------------------------------------------------------------------------------------
 @Composable
 fun LayoutTab(vm: AppViewModel, look: Look) {
-    SectionTitle("Canvas size")
+    Group("Canvas size", startOpen = true) {
     ShapePicker(vm.shape) { vm.updateShape(it) }
 
-    SectionTitle("Text shape (the text fills it)")
+    }
+    Group("Text shape (the text fills it)") {
     ChipRow(TextShape.entries, look.textShape, { it.label }) { t -> vm.edit { it.copy(textShape = t) } }
     SwitchRow(
         if (look.textShape == TextShape.Rect) "Colour panel behind the text" else "Fill the shape with colour",
@@ -437,7 +450,8 @@ fun LayoutTab(vm: AppViewModel, look: Look) {
         ColorField("Shape colour", col, withAlpha = true) { picked -> vm.edit { it.copy(shapeColor = picked) } }
     }
 
-    SectionTitle("Alignment")
+    }
+    Group("Alignment") {
     ChipRow(Align.entries, look.align, { it.name }) { a -> vm.edit { it.copy(align = a) } }
     Spacer(Modifier.height(4.dp))
     LabeledSlider("Margins", look.margin, 0f..0.2f, { v -> vm.edit { it.copy(margin = v) } })
@@ -445,13 +459,15 @@ fun LayoutTab(vm: AppViewModel, look: Look) {
     LabeledSlider("Letter spacing", look.letterSpacing, -0.05f..0.3f, { v -> vm.edit { it.copy(letterSpacing = v) } })
     SwitchRow("Spread lines to fill the height", look.fillHeight) { on -> vm.edit { it.copy(fillHeight = on) } }
 
-    SectionTitle("Size and position")
+    }
+    Group("Size and position") {
     LabeledSlider(
         "Text size (1.00 = fill the shape)", look.textScale, 0.3f..1f,
         { v -> vm.edit { it.copy(textScale = v) } },
     )
     LabeledSlider("Move left / right", look.offsetX, -0.3f..0.3f, { v -> vm.edit { it.copy(offsetX = v) } })
     LabeledSlider("Move up / down", look.offsetY, -0.3f..0.3f, { v -> vm.edit { it.copy(offsetY = v) } })
+    }
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -486,7 +502,7 @@ fun PaperTab(vm: AppViewModel, look: Look) {
         )
         return
     }
-    SectionTitle("Sheet")
+    Group("Sheet", startOpen = true) {
     ColorField("Paper colour", look.paperColor, withAlpha = look.paper == PaperType.Glass) { col ->
         vm.edit { it.copy(paperColor = col) }
     }
@@ -497,13 +513,15 @@ fun PaperTab(vm: AppViewModel, look: Look) {
         String.format(Locale.US, "%.1f°", look.tilt),
     )
 
-    SectionTitle("Wear and damage")
+    }
+    Group("Wear and damage") {
     SwitchRow("Coffee stains", look.stains) { on -> vm.edit { it.copy(stains = on) } }
     SwitchRow("Folds", look.folds) { on -> vm.edit { it.copy(folds = on) } }
     SwitchRow("Burnt edges", look.burnt) { on -> vm.edit { it.copy(burnt = on) } }
     SwitchRow("Torn edges", look.torn) { on -> vm.edit { it.copy(torn = on) } }
     SwitchRow("Ink blots", look.blots) { on -> vm.edit { it.copy(blots = on) } }
     LabeledSlider("Amount of wear", look.wear, 0f..1.5f, { v -> vm.edit { it.copy(wear = v) } })
+    }
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -511,7 +529,7 @@ fun PaperTab(vm: AppViewModel, look: Look) {
 // ------------------------------------------------------------------------------------------------
 @Composable
 fun SceneTab(vm: AppViewModel, look: Look) {
-    SectionTitle("Perspective")
+    Group("Perspective", startOpen = true) {
     LabeledSlider(
         "Lean back / forward", look.tiltX, -35f..35f, { v -> vm.edit { it.copy(tiltX = v) } },
         String.format(Locale.US, "%.0f°", look.tiltX),
@@ -520,10 +538,12 @@ fun SceneTab(vm: AppViewModel, look: Look) {
         "Turn left / right", look.tiltY, -35f..35f, { v -> vm.edit { it.copy(tiltY = v) } },
         String.format(Locale.US, "%.0f°", look.tiltY),
     )
-    SectionTitle("Light")
+    }
+    Group("Light") {
     ChipRow(LightType.entries, look.light, { it.label }) { t -> vm.edit { it.copy(light = t) } }
     if (look.light != LightType.None) {
         LabeledSlider("Strength", look.lightStrength, 0f..1f, { v -> vm.edit { it.copy(lightStrength = v) } })
+    }
     }
 }
 
@@ -544,7 +564,7 @@ fun StickersTab(vm: AppViewModel, look: Look, selected: String?, onSelect: (Stri
         l.copy(stickers = l.stickers.map { if (it.id == id) f(it) else it })
     }
 
-    SectionTitle("Add a sticker")
+    Group("Add a sticker", startOpen = true) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(StickerType.entries.toList()) { type ->
             AssistChip(
@@ -577,7 +597,8 @@ fun StickersTab(vm: AppViewModel, look: Look, selected: String?, onSelect: (Stri
         return
     }
 
-    SectionTitle("On the page")
+    }
+    Group("On the page") {
     Row(
         Modifier
             .fillMaxWidth()
@@ -611,5 +632,6 @@ fun StickersTab(vm: AppViewModel, look: Look, selected: String?, onSelect: (Stri
         }) {
             Icon(Icons.Rounded.Delete, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Delete")
         }
+    }
     }
 }

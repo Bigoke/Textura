@@ -1,5 +1,17 @@
 package com.textura.app
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.ui.unit.dp
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -88,8 +100,12 @@ private fun AppNav(vm: AppViewModel) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            if (showBar) {
-                NavigationBar {
+            AnimatedVisibility(
+                visible = showBar,
+                enter = slideInVertically(tween(280, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(240)),
+                exit = slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(160)),
+            ) {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
                     Tabs.forEach { t ->
                         NavigationBarItem(
                             selected = route == t.route,
@@ -102,13 +118,33 @@ private fun AppNav(vm: AppViewModel) {
                             },
                             icon = { Icon(t.icon, t.label) },
                             label = { Text(t.label) },
+                            alwaysShowLabel = false,
+                            colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primaryContainer),
                         )
                     }
                 }
             }
         },
     ) { padding ->
-        NavHost(nav, startDestination = "home", modifier = Modifier.padding(padding)) {
+        val tabRoutes = Tabs.map { it.route }
+        val ease = FastOutSlowInEasing
+        NavHost(
+            nav,
+            startDestination = "home",
+            modifier = Modifier.padding(padding),
+            enterTransition = {
+                if (initialState.destination.route in tabRoutes && targetState.destination.route in tabRoutes)
+                    fadeIn(tween(240, delayMillis = 70)) + scaleIn(tween(300, easing = ease), initialScale = 0.97f)
+                else slideInHorizontally(tween(340, easing = ease)) { it / 7 } + fadeIn(tween(300))
+            },
+            exitTransition = {
+                if (initialState.destination.route in tabRoutes && targetState.destination.route in tabRoutes)
+                    fadeOut(tween(110))
+                else slideOutHorizontally(tween(340, easing = ease)) { -it / 9 } + fadeOut(tween(220))
+            },
+            popEnterTransition = { slideInHorizontally(tween(340, easing = ease)) { -it / 9 } + fadeIn(tween(300)) },
+            popExitTransition = { slideOutHorizontally(tween(340, easing = ease)) { it / 7 } + fadeOut(tween(240)) },
+        ) {
             composable("home") {
                 HomeScreen(
                     vm,

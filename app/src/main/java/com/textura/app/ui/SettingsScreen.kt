@@ -58,20 +58,23 @@ fun SettingsScreen(vm: AppViewModel) {
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
 
-        SectionTitle("Theme")
+        Group("Theme", startOpen = true) {
         ChipRow(ThemeMode.entries, s.theme, { it.name }) { t -> vm.updateSettings { it.copy(theme = t) } }
 
-        SectionTitle("Default canvas size")
+        }
+        Group("Default canvas size") {
         ShapePicker(s.defaultShape) { shape ->
             vm.updateSettings { it.copy(defaultShape = shape) }
             vm.updateShape(shape)
         }
 
-        SectionTitle("Default export size (longest side)")
+        }
+        Group("Default export size (longest side)") {
         val selectedRes = SettingResolutions.firstOrNull { it.first == s.defaultLongEdge } ?: SettingResolutions[1]
         ChipRow(SettingResolutions, selectedRes, { it.second }) { r -> vm.updateSettings { it.copy(defaultLongEdge = r.first) } }
 
-        SectionTitle("Default format")
+        }
+        Group("Default format") {
         ChipRow(ImageFormat.entries, s.defaultFormat, { it.label }) { f -> vm.updateSettings { it.copy(defaultFormat = f) } }
 
         if (s.defaultFormat == ImageFormat.JPG) {
@@ -81,7 +84,8 @@ fun SettingsScreen(vm: AppViewModel) {
             )
         }
 
-        SectionTitle("Signature on exports")
+        }
+        Group("Signature on exports") {
         SwitchRow("Add my signature by default", s.signatureOn) { on -> vm.updateSettings { it.copy(signatureOn = on) } }
         OutlinedTextField(
             value = s.signature,
@@ -94,11 +98,13 @@ fun SettingsScreen(vm: AppViewModel) {
             vm.updateSettings { it.copy(signaturePos = p.first) }
         }
 
-        SectionTitle("Feel")
+        }
+        Group("Feel") {
         SwitchRow("Haptic tick when swiping", s.haptics) { on -> vm.updateSettings { it.copy(haptics = on) } }
         SwitchRow("Smart order (best looks for your text first)", s.smartOrder) { on -> vm.updateSettings { it.copy(smartOrder = on) } }
 
-        SectionTitle("Spelling & grammar")
+        }
+        Group("Spelling & grammar") {
         Text(
             "Checks Afrikaans and English. Spelling and the basic grammar rules run on your phone. Words you add while checking are kept in your own dictionary.",
             style = MaterialTheme.typography.bodySmall,
@@ -109,7 +115,8 @@ fun SettingsScreen(vm: AppViewModel) {
             OutlinedButton(onClick = { vm.clearUserWords() }, enabled = vm.userWords.isNotEmpty()) { Text("Clear") }
         }
 
-        SectionTitle("Backup")
+        }
+        Group("Backup") {
         Text(
             "Saves your templates, favorites and settings to a file. Choose Google Drive in the file picker to keep it in the cloud. Background photos are not included.",
             style = MaterialTheme.typography.bodySmall,
@@ -120,19 +127,22 @@ fun SettingsScreen(vm: AppViewModel) {
             OutlinedButton(onClick = { restoreLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }) { Text("Restore") }
         }
 
-        SectionTitle("Widget")
+        }
+        Group("Widget") {
         Text(
             "Long-press your home screen, choose Widgets, and add Textura for a quote of the day in one of your favorite looks.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        SectionTitle("About")
+        }
+        Group("About") {
         Text(
             "Textura 1.3\nEverything is created on your device. Fonts are bundled open-source families (SIL Open Font License / Apache 2.0) from Google Fonts. Afrikaans spelling uses the af_ZA dictionary (Translate.org.za, LGPL 2.1); English uses SCOWL-based word lists. Translation uses Google ML Kit; its language data downloads once.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth(),
         )
+        }
     }
 }

@@ -1,5 +1,9 @@
 package com.textura.app.ui
 
+import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.Spellcheck
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import android.graphics.Bitmap
 import android.net.Uri
 import android.widget.Toast
@@ -124,79 +128,93 @@ fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryIt
                 .padding(horizontal = 20.dp)
                 .padding(top = 8.dp, bottom = 110.dp),
         ) {
-            Text("Textura", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onBackground)
-            Text(
-                "Turn any text into a designed page.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(14.dp))
-            QuoteCard { vm.updateText(it) }
-            Spacer(Modifier.height(14.dp))
-
-            OutlinedTextField(
-                value = vm.text,
-                onValueChange = vm::updateText,
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 7,
-                maxLines = 12,
-                shape = RoundedCornerShape(24.dp),
-                placeholder = { Text("Paste or type your text…") },
-                visualTransformation = TagDimTransformation(MaterialTheme.colorScheme.outline),
-            )
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    "${plain.length} characters · $words words",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            FadeInItem(0) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Textura", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onBackground)
+                        Text(
+                            "Turn any text into a designed page.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    OverflowMenu(
+                        listOf(
+                            MenuAction("Translate", Icons.Rounded.Translate, plain.isNotBlank()) { tools = ToolsRequest(vm.text, false, 0) },
+                            MenuAction("Spelling & grammar", Icons.Rounded.Spellcheck, plain.isNotBlank()) { tools = ToolsRequest(vm.text, false, 1) },
+                            MenuAction("Sample text", Icons.Rounded.TextFields) { vm.randomSample() },
+                            MenuAction("Clear text", Icons.Rounded.Clear, plain.isNotBlank()) { vm.updateText("") },
+                        ),
+                    )
+                }
             }
-            FlowRow(
-                Modifier.padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                OutlinedButton(onClick = { scanDialog = true }, enabled = !scanning) {
-                    if (scanning) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    else Icon(Icons.Rounded.CameraAlt, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Photo to text")
-                }
-                OutlinedButton(onClick = {
-                    clipboard.getText()?.text?.takeIf { it.isNotBlank() }?.let(vm::updateText)
-                }) {
-                    Icon(Icons.Rounded.ContentPaste, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Paste")
-                }
-                OutlinedButton(onClick = { vm.updateText("") }) {
-                    Icon(Icons.Rounded.Clear, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Clear")
-                }
-                OutlinedButton(onClick = vm::randomSample) {
-                    Icon(Icons.Rounded.TextFields, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Sample")
-                }
-                OutlinedButton(onClick = { tools = ToolsRequest(vm.text, false, 0) }, enabled = plain.isNotBlank()) { Text("Translate") }
-                OutlinedButton(onClick = { tools = ToolsRequest(vm.text, false, 1) }, enabled = plain.isNotBlank()) { Text("Spelling & grammar") }
-            }
+            Spacer(Modifier.height(16.dp))
 
-            SectionTitle("Shape")
-            ShapePicker(vm.shape) { vm.updateShape(it) }
+            FadeInItem(1) {
+                Column {
+                    OutlinedTextField(
+                        value = vm.text,
+                        onValueChange = vm::updateText,
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 7,
+                        maxLines = 12,
+                        shape = RoundedCornerShape(22.dp),
+                        placeholder = { Text("Paste or type your text…") },
+                        visualTransformation = TagDimTransformation(MaterialTheme.colorScheme.outline),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                    Text(
+                        "${plain.length} characters · $words words",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp, start = 4.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+
+            FadeInItem(2) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FilledTonalButton(onClick = { scanDialog = true }, enabled = !scanning, modifier = Modifier.weight(1f).pressScale()) {
+                        if (scanning) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        else Icon(Icons.Rounded.CameraAlt, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Photo to text")
+                    }
+                    OutlinedButton(onClick = {
+                        clipboard.getText()?.text?.takeIf { it.isNotBlank() }?.let(vm::updateText)
+                    }, modifier = Modifier.weight(1f).pressScale()) {
+                        Icon(Icons.Rounded.ContentPaste, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Paste")
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+
+            FadeInItem(3) {
+                Column {
+                    Group("Format · ${vm.shape.label}", stateKey = "home-format") {
+                        ShapePicker(vm.shape) { vm.updateShape(it) }
+                    }
+                    Group("Quote of the day", stateKey = "home-quote") {
+                        QuoteCard { vm.updateText(it) }
+                    }
+                }
+            }
 
             if (vm.history.isNotEmpty()) {
-                SectionTitle("Recent designs")
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(vm.history.take(12), key = { it.id }) { item ->
-                        HistoryThumb(vm, item, 120.dp) { onOpenHistory(item) }
+                FadeInItem(4) {
+                    Column {
+                        SectionTitle("Recent designs")
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            items(vm.history.take(12), key = { it.id }) { item ->
+                                HistoryThumb(vm, item, 120.dp, Modifier.pressScale(0.96f)) { onOpenHistory(item) }
+                            }
+                        }
                     }
                 }
             }
@@ -231,7 +249,8 @@ fun HomeScreen(vm: AppViewModel, onCreate: () -> Unit, onOpenHistory: (HistoryIt
             onClick = onCreate,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 18.dp),
+                .padding(bottom = 18.dp)
+                .pressScale(),
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
         ) {
