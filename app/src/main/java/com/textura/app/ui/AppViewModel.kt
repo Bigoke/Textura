@@ -116,6 +116,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             Category.Typed -> s += if (long) 3 else if (len > 220) 1 else 0
             Category.Paper -> if (len in 120..500) s += 2
             Category.Handwritten -> if (len < 350) s += 2
+            Category.Occasion -> s += if (short) 2 else if (len < 220) 1 else -1
         }
         if (long && l.fontId in setOf("anton", "bungee", "monoton", "abril_fatface", "unifraktur", "bebas_neue")) s -= 3
         if (l.textShape != TextShape.Rect) s += if (len > 300) -4 else if (len < 200) 1 else 0
